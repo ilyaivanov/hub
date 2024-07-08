@@ -31,8 +31,11 @@ export const light = {
     selectedText: "#000000",
 };
 
-export let colors = dark;
+export let colors: typeof dark;
 
 export function setColors(c: typeof dark) {
     colors = c;
+    document.body.style.backgroundColor = dark.bg;
 }
+
+setColors(dark);

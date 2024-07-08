@@ -89,6 +89,10 @@ document.addEventListener("keydown", (e) => {
             saveItemsToLocalStorage(root);
             e.preventDefault();
         }
+        if (e.code == "KeyV") {
+            selectedItem.view = selectedItem.view == "board" ? "tree" : "board";
+            layout();
+        }
         if (e.code == "Space") {
             setColors(colors == light ? dark : light);
         } else if (e.code == "KeyI") {
@@ -120,7 +124,7 @@ document.addEventListener("keydown", (e) => {
                 layout();
                 updateSelectionPosition();
             } else changeSelection(getItemBelow(selectedItem));
-        } else if (e.code == "KeyR") {
+        } else if (e.code == "KeyR" && !e.metaKey) {
             selectedItem.title = "";
             startEditSelectedItem("start");
             e.preventDefault();
@@ -228,44 +232,97 @@ const views = new Map<Item, View>();
 let selectedItem: Item;
 let selectedItemY = spring(50, slowAnim);
 
-function layout() {
-    let x = spacings.padding;
-    let y = spacings.padding;
+function updateOrCreateView(x: number, y: number, item: Item) {
+    const existingView = views.get(item);
+    if (existingView) {
+        animateto(existingView.x, x);
+        animateto(existingView.y, y);
+        const newHeight = item.isOpen
+            ? getOpenChildrenCount(item) * spacings.rowHeight
+            : 0;
+        animateto(existingView.childrenHeight, newHeight);
+        return existingView;
+    } else {
+        const newView: View = {
+            x: spring(x, slowAnim),
+            y: spring(y, slowAnim),
+            opacity: spring(1, slowAnim),
+            childrenHeight: item.isOpen
+                ? spring(
+                      getOpenChildrenCount(item) * spacings.rowHeight,
+                      slowAnim
+                  )
+                : spring(0, slowAnim),
+        };
+        views.set(item, newView);
+        return newView;
+    }
+}
 
-    const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
+export function layout() {
+    layoutTree(spacings.padding, spacings.padding, root);
+}
 
+function itemWidth(item: Item) {
+    return ctx.measureText(item.title).width + getViewTextX(0);
+}
+function layoutTree(x: number, y: number, item: Item) {
+    const startY = y;
+    const stack = item.children.map((item) => ({ item, level: 0 })).reverse();
+
+    let maxWidth = 0;
     while (stack.length > 0) {
         const { item, level } = stack.pop()!;
         let itemX = x + level * spacings.xStep;
+        const view = updateOrCreateView(itemX, y, item);
+        const width = itemWidth(item);
 
-        const existingView = views.get(item);
-        if (existingView) {
-            animateto(existingView.x, itemX);
-            animateto(existingView.y, y);
-            const newHeight = item.isOpen
-                ? getOpenChildrenCount(item) * spacings.rowHeight
-                : 0;
-            animateto(existingView.childrenHeight, newHeight);
-        } else
-            views.set(item, {
-                x: spring(itemX, slowAnim),
-                y: spring(y, slowAnim),
-                opacity: spring(1, slowAnim),
-                childrenHeight: item.isOpen
-                    ? spring(
-                          getOpenChildrenCount(item) * spacings.rowHeight,
-                          slowAnim
-                      )
-                    : spring(0, slowAnim),
-            });
+        if (width + (itemX - x) > maxWidth) {
+            maxWidth = width + (itemX - x);
+        }
 
         if (item.isOpen) {
-            for (let i = item.children.length - 1; i >= 0; i--)
-                stack.push({ item: item.children[i], level: level + 1 });
+            let maxHeight = 0;
+
+            if (item.view == "board") {
+                const boardView = view;
+                y += spacings.rowHeight;
+                let boardX = itemX + spacings.xStep;
+                let cellWidth = 0;
+                for (let i = 0; i < item.children.length; i++) {
+                    let boardY = y + spacings.rowHeight;
+                    const child = item.children[i];
+                    cellWidth = itemWidth(child);
+                    updateOrCreateView(boardX, boardY, child);
+
+                    if (child.isOpen) {
+                        boardY += spacings.rowHeight;
+
+                        const tree = layoutTree(
+                            boardX + spacings.xStep,
+                            boardY,
+                            child
+                        );
+                        if (tree.height > maxHeight) maxHeight = tree.height;
+                        if (tree.width + spacings.xStep > cellWidth)
+                            cellWidth = tree.width + spacings.xStep;
+                    }
+                    boardX += cellWidth + spacings.xStep;
+                }
+                animateto(
+                    boardView.childrenHeight,
+                    boardX - itemX - cellWidth - spacings.xStep
+                );
+                y += maxHeight + spacings.rowHeight;
+            } else {
+                for (let i = item.children.length - 1; i >= 0; i--)
+                    stack.push({ item: item.children[i], level: level + 1 });
+            }
         }
 
         y += spacings.rowHeight;
     }
+    return { height: y - startY, width: maxWidth };
 }
 function getViewTextX(x: number) {
     return x + spacings.iconSize / 2 + spacings.textToIcon;
@@ -296,13 +353,38 @@ function onTick(time: number) {
 
         if (childrenHeight.current > 0) {
             ctx.fillStyle = colors.lines;
+            if (item.view == "board") {
+                ctx.fillRect(
+                    x - 1,
+                    y + spacings.rowHeight / 2,
+                    2,
+                    spacings.rowHeight / 2 + 1
+                );
+                ctx.fillRect(
+                    x,
+                    y + spacings.rowHeight - 1,
+                    childrenHeight.current + 1,
+                    2
+                );
+            } else
+                ctx.fillRect(
+                    x - 1,
+                    y + spacings.rowHeight / 2,
+                    2,
+                    childrenHeight.current
+                );
+        }
+
+        if (item.parent.view == "board") {
+            ctx.fillStyle = colors.lines;
             ctx.fillRect(
                 x - 1,
-                y + spacings.rowHeight / 2,
+                y - spacings.rowHeight,
                 2,
-                childrenHeight.current
+                spacings.rowHeight / 2
             );
         }
+
         if (item != itemEdited) {
             ctx.fillStyle =
                 item == selectedItem ? colors.selectedText : colors.text;

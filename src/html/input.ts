@@ -1,4 +1,5 @@
 import { colors, spacings } from "../consts";
+import { layout } from "../index";
 import { Item } from "../tree";
 
 export let itemEdited: Item | undefined;
@@ -15,12 +16,17 @@ Object.assign(input.style, {
     boxSizing: "border-box",
 });
 
+input.addEventListener("input", (e) => {
+    if (itemEdited) itemEdited.title = input.value;
+    layout();
+});
+
 export function startEdit(x: number, y: number, width: number, item: Item) {
     itemEdited = item;
     Object.assign(input.style, {
         left: x + "px",
         top: y + "px",
-        width: width + "px",
+        width: "400px",
         color: colors.selectedText,
     });
     input.value = item.title;

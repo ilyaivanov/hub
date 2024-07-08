@@ -5,6 +5,7 @@ export type Item = {
     children: Item[];
     parent: Item;
     isOpen: boolean;
+    view: "tree" | "board";
 };
 
 export function i(title: string, children: Item[] = []) {
@@ -13,27 +14,54 @@ export function i(title: string, children: Item[] = []) {
         children,
         parent: undefined!,
         isOpen: children.length > 0,
+        view: "tree",
+    };
+    children.forEach((c) => (c.parent = res));
+    return res;
+}
+
+export function board(title: string, children: Item[] = []) {
+    const res: Item = {
+        title,
+        children,
+        parent: undefined!,
+        isOpen: children.length > 0,
+        view: "board",
     };
     children.forEach((c) => (c.parent = res));
     return res;
 }
 
 const defaultItems = i("Root", [
-    i("Carbon Based Lifeforms", [
-        i("1998 - The Path"),
-        i("2003 - Hydroponic Garden"),
-        i("2006 - World Of Sleepers"),
-        i("2010 - Interloper", [i("Track 1"), i("Track 2"), i("Track 3")]),
+    board("Music", [
+        i("||||||||||||||||||||", [
+            i("||||||||||"),
+            i("|"),
+            i("|"),
+            i("|"),
+            i("|"),
+        ]),
+        i("|||||||||||||"),
+        i("|", [
+            i("|||||||||||||", [
+                i("|", [
+                    i("|||||||||||||"),
+                    i("|||||||||||||"),
+                    i("|||||||||||||"),
+                    i("|||||||||||||"),
+                ]),
+            ]),
+            i("|||||||||||||"),
+            i("|||||||||||||"),
+            i("|||||||||||||"),
+        ]),
+        i("|||||||||||||"),
+        i("|||||||||||||"),
+        i("|||||||||||||"),
+        i("|||||||||||||"),
     ]),
-    i("Circular"),
-    i("I Awake"),
     i("James Murray"),
     i("Miktek"),
-    i("Koan", [
-        i("Koan - The Way Of One [ Full Album ] 2014"),
-        i("Koan - Argonautica [Full Album]"),
-        i("Koan - Condemned (Full Album) 2016"),
-    ]),
     i("Zero Cult"),
     i("Androcell"),
     i("Scann-Tec"),
@@ -46,7 +74,8 @@ const defaultItems = i("Root", [
     i("Fahrenheit Project"),
 ]);
 
-const savedRoot = loadItemsFromLocalStorage();
+// const savedRoot = loadItemsFromLocalStorage();
+const savedRoot = undefined;
 export const root = savedRoot || defaultItems;
 
 export function isRoot(item: Item) {
