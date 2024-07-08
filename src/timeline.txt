@@ -1,0 +1,27 @@
+[y] Tree layout
+[y] Spring animation system
+[y] Tree traversal 
+[y] Collapse open items
+[y] Edit items
+[y] Add items
+[y] Remove items
+[y] Persistance into local storage
+[ ] Persistance into file system
+[y] Move items around
+[ ] Undo/redo
+[ ] Focus
+[ ] Scroll
+[ ] Views (board, miller, gallery, long list)
+[ ] Text reflow
+[ ] Multiple selection
+
+
+
+Focus
+
+Search
+
+Media Support 
+[ ] Youtube support
+[ ] Lastfm support
+[ ] Local file system media
