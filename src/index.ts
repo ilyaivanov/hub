@@ -15,6 +15,7 @@ import {
 } from "./selection";
 import {
     Item,
+    getContext,
     getOpenChildrenCount,
     i,
     insertAsFirstChild,
@@ -52,10 +53,34 @@ function updateSelectionPosition() {
     const y = views.get(selectedItem)!.y.target - spacings.rowHeight / 2;
     animateto(selectedItemY, y);
 }
+
+function clampOffset(val: number) {
+    return clamp(val, 0, treeHeight - screenHeight);
+}
+
 function changeSelection(newItem: Item | undefined) {
     if (newItem) {
         selectedItem = newItem;
         updateSelectionPosition();
+
+        const itemsToLookAhead = 3;
+
+        const spaceToLookAhead = spacings.rowHeight * itemsToLookAhead;
+        if (
+            treeHeight > screenHeight &&
+            selectedItemY.target + spaceToLookAhead - screenHeight >
+                offset.target
+        ) {
+            const targetOffset =
+                selectedItemY.target - screenHeight + spaceToLookAhead;
+            animateto(offset, clampOffset(targetOffset));
+        } else if (
+            treeHeight > screenHeight &&
+            selectedItemY.target - spaceToLookAhead < offset.target
+        ) {
+            const targetOffset = selectedItemY.target - spaceToLookAhead;
+            animateto(offset, clampOffset(targetOffset));
+        }
     }
 }
 
@@ -74,10 +99,16 @@ function startEditSelectedItem(carretPlacement: "start" | "end") {
         if (carretPlacement == "end") position = selectedItem.title.length;
 
         input.selectionStart = input.selectionEnd = position;
-        //doesn't work for input
-        // placeCarretAt(input, 2);
     }
 }
+let offset = spring(0, slowAnim, "anim");
+
+document.addEventListener("wheel", (e) => {
+    if (treeHeight > screenHeight) {
+        offset.target = clampOffset(offset.target + e.deltaY);
+        offset.isAnimating = true;
+    }
+});
 
 document.addEventListener("keydown", (e) => {
     if (itemEdited) {
@@ -123,7 +154,14 @@ document.addEventListener("keydown", (e) => {
                 moveItemDown(selectedItem);
                 layout();
                 updateSelectionPosition();
-            } else changeSelection(getItemBelow(selectedItem));
+            } else if (e.ctrlKey) {
+                const context = getContext(selectedItem);
+                const index = context.indexOf(selectedItem);
+                if (index < context.length - 1)
+                    changeSelection(context[index + 1]);
+            } else {
+                changeSelection(getItemBelow(selectedItem));
+            }
         } else if (e.code == "KeyR" && !e.metaKey) {
             selectedItem.title = "";
             startEditSelectedItem("start");
@@ -231,6 +269,8 @@ const views = new Map<Item, View>();
 
 let selectedItem: Item;
 let selectedItemY = spring(50, slowAnim);
+let selectedItemX = spring(0, slowAnim);
+let selectedItemWidth = spring(screenWidth, slowAnim);
 
 function updateOrCreateView(x: number, y: number, item: Item) {
     const existingView = views.get(item);
@@ -259,8 +299,13 @@ function updateOrCreateView(x: number, y: number, item: Item) {
     }
 }
 
+let treeHeight = 0;
+
 export function layout() {
-    layoutTree(spacings.padding, spacings.padding, root);
+    treeHeight =
+        layoutTree(spacings.padding, spacings.padding, root).height +
+        spacings.rowHeight / 2 +
+        spacings.padding;
 }
 
 function itemWidth(item: Item) {
@@ -309,6 +354,9 @@ function layoutTree(x: number, y: number, item: Item) {
                     }
                     boardX += cellWidth + spacings.xStep;
                 }
+                if (boardX - itemX > maxWidth) {
+                    maxWidth = boardX - itemX;
+                }
                 animateto(
                     boardView.childrenHeight,
                     boardX - itemX - cellWidth - spacings.xStep
@@ -332,12 +380,22 @@ function onTick(time: number) {
     let delta = time - lastTime;
 
     ctx.fillStyle = colors.bg;
-    ctx.fillRect(0, 0, screenWidth, screenHeight);
+    ctx.fillRect(-200000, -200000, 400000, 400000);
+
+    ctx.resetTransform();
+    ctx.scale(scale, scale);
+
+    ctx.translate(0, -offset.current);
 
     ctx.textBaseline = "middle";
 
     ctx.fillStyle = colors.selectedRect;
-    ctx.fillRect(0, selectedItemY.current, screenWidth, spacings.rowHeight);
+    ctx.fillRect(
+        selectedItemX.current,
+        selectedItemY.current,
+        selectedItemWidth.current,
+        spacings.rowHeight
+    );
 
     for (const item of views.keys()) {
         const { x: xPos, y: yPos, opacity, childrenHeight } = views.get(item)!;
@@ -394,6 +452,24 @@ function onTick(time: number) {
 
     ctx.globalAlpha = 1;
 
+    ctx.resetTransform();
+    ctx.scale(scale, scale);
+
+    if (treeHeight > screenHeight) {
+        ctx.fillStyle = colors.lines;
+        const scrollWidth = 6;
+        const scrollHeight = (screenHeight * screenHeight) / treeHeight;
+        const maxOffset = treeHeight - screenHeight;
+        const maxScrollY = screenHeight - scrollHeight;
+        const scrollY = lerp(0, maxScrollY, offset.current / maxOffset);
+        ctx.fillRect(
+            screenWidth - scrollWidth,
+            scrollY,
+            scrollWidth,
+            scrollHeight
+        );
+    }
+
     //sometimes time is passed twice with the same value, resulting in delta time being zero
     if (delta > 0.5) tick(delta);
 
@@ -410,4 +486,8 @@ function clamp(v: number, min: number, max: number) {
     if (v < min) return min;
     if (v > max) return max;
     return v;
+}
+
+function lerp(from: number, to: number, lerping: number) {
+    return from * (1 - lerping) + to * lerping;
 }

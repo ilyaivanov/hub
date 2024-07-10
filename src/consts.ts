@@ -1,4 +1,4 @@
-import { grey } from "./swatches";
+import { blueGrey, cyan, grey } from "./swatches";
 
 export const spacings = {
     padding: 25,
@@ -28,7 +28,7 @@ export const light = {
     icons: swatches["600"],
     text: swatches["900"],
     selectedRect: swatches["200"],
-    selectedText: "#000000",
+    selectedText: swatches["050"],
 };
 
 export let colors: typeof dark;

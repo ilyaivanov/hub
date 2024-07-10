@@ -6,6 +6,7 @@ export type Animated = {
     acceleration: number;
     isAnimating: boolean;
     props: AnimationProps;
+    name?: string;
 };
 type AnimationProps = {
     stiffness: number;
@@ -25,7 +26,11 @@ export const slowAnim: AnimationProps = {
 
 const animations: Animated[] = [];
 
-export function spring(current: number, props: AnimationProps): Animated {
+export function spring(
+    current: number,
+    props: AnimationProps,
+    name?: string
+): Animated {
     const res: Animated = {
         from: current,
         target: current,
@@ -34,6 +39,7 @@ export function spring(current: number, props: AnimationProps): Animated {
         acceleration: 0,
         isAnimating: false,
         props,
+        name,
     };
     animations.push(res);
     return res;
@@ -42,6 +48,7 @@ export function spring(current: number, props: AnimationProps): Animated {
 export function animateto(anim: Animated, to: number) {
     if (anim.target != to) {
         anim.target = to;
+        anim.lastValue = anim.current;
         anim.from = anim.current;
         anim.isAnimating = true;
     }
@@ -59,8 +66,11 @@ export function tick(deltaTime: number) {
         const range = anim.target - anim.current;
         const acceleration = (stiffness * range - dumper * speed) * (1 / mass);
 
-        anim.lastValue = anim.current;
         const next = anim.current + (speed + acceleration) * deltaSec;
+        if (anim.name == "anim") {
+            console.log(anim.lastValue, anim.current, next);
+        }
+        anim.lastValue = anim.current;
         anim.current = next;
     }
 }

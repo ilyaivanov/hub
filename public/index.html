@@ -12,6 +12,11 @@
             }
             canvas {
                 display: block;
+
+                /* this prevents spring motion on MacOS when scrolling  */
+                position: fixed;
+                top: 0;
+                left: 0;
             }
         </style>
     </head>

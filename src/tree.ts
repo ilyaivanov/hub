@@ -1,3 +1,4 @@
+import { b } from "./b";
 import { loadItemsFromLocalStorage } from "./persistance";
 
 export type Item = {
@@ -72,11 +73,68 @@ const defaultItems = i("Root", [
     i("Aes Dana"),
     i("Side Liner"),
     i("Fahrenheit Project"),
+    i("James Murray"),
+    i("Miktek"),
+    i("Zero Cult"),
+    i("Androcell"),
+    i("Scann-Tec"),
+    i("Hol Baumann"),
+    i("Asura"),
+    i("Cell"),
+    i("Biosphere"),
+    i("Aes Dana"),
+    i("Side Liner"),
+    i("Fahrenheit Project"),
+    i("James Murray"),
+    i("Miktek"),
+    i("Zero Cult"),
+    i("Androcell"),
+    i("Scann-Tec"),
+    i("Hol Baumann"),
+    i("Asura"),
+    i("Cell"),
+    i("Biosphere"),
+    i("Aes Dana"),
+    i("Side Liner"),
+    i("Fahrenheit Project"),
+    i("James Murray"),
+    i("Miktek"),
+    i("Zero Cult"),
+    i("Androcell"),
+    i("Scann-Tec"),
+    i("Hol Baumann"),
+    i("Asura"),
+    i("Cell"),
+    i("Biosphere"),
+    i("Aes Dana"),
+    i("Side Liner"),
+    i("Fahrenheit Project"),
+    i("James Murray"),
+    i("Miktek"),
+    i("Zero Cult"),
+    i("Androcell"),
+    i("Scann-Tec"),
+    i("Hol Baumann"),
+    i("Asura"),
+    i("Cell"),
+    i("Biosphere"),
+    i("Aes Dana"),
+    i("Side Liner"),
+    i("Fahrenheit Project"),
 ]);
 
 // const savedRoot = loadItemsFromLocalStorage();
 const savedRoot = undefined;
-export const root = savedRoot || defaultItems;
+
+function map(d: Item): Item {
+    // const v = (b as any)[id];
+
+    const item = i(d.title, d.children ? d.children.map(map) : []);
+    item.isOpen = false;
+    return item;
+}
+// const mapped = map("HOME");
+export const root = map(b as any); //mapped; //savedRoot || defaultItems;
 
 export function isRoot(item: Item) {
     return !item.parent;
