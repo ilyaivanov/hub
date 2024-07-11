@@ -21,6 +21,7 @@ import {
     insertAsFirstChild,
     insertItemAfter,
     insertItemBefore,
+    isParentOrSame,
     removeItem,
     root,
 } from "./tree";
@@ -43,23 +44,39 @@ function onResize() {
     canvas.width = Math.floor(screenWidth * scale);
     canvas.height = Math.floor(screenHeight * scale);
     ctx.scale(scale, scale);
-
-    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 }
 onResize();
-window.addEventListener("resize", onResize);
+window.addEventListener("resize", () => {
+    onResize();
+
+    offset.target = clampOffset(offset.target);
+    offset.isAnimating = true;
+});
 
 function updateSelectionPosition() {
-    const y = views.get(selectedItem)!.y.target - spacings.rowHeight / 2;
-    animateto(selectedItemY, y);
+    const view = views.get(selectedItem);
+    if (selectedItem == focusedItem) {
+        animateto(selectedItemHeight, 30);
+        animateto(selectedItemY, 10);
+    } else if (view) {
+        const y = views.get(selectedItem)!.y.target - spacings.rowHeight / 2;
+        animateto(selectedItemHeight, spacings.rowHeight);
+        animateto(selectedItemY, y);
+    } else {
+        console.info(
+            `Can't find view for selected item: ${selectedItem.title}`
+        );
+    }
 }
 
 function clampOffset(val: number) {
-    return clamp(val, 0, treeHeight - screenHeight);
+    const maxOffset = max(treeHeight - screenHeight, 0);
+    return clamp(val, 0, maxOffset);
 }
 
 function changeSelection(newItem: Item | undefined) {
-    if (newItem) {
+    const isP = isParentOrSame(newItem!, focusedItem);
+    if (newItem && isP) {
         selectedItem = newItem;
         updateSelectionPosition();
 
@@ -101,6 +118,10 @@ function startEditSelectedItem(carretPlacement: "start" | "end") {
         input.selectionStart = input.selectionEnd = position;
     }
 }
+export function isFocused(item: Item) {
+    return item == focusedItem;
+}
+
 let offset = spring(0, slowAnim, "anim");
 
 document.addEventListener("wheel", (e) => {
@@ -116,6 +137,13 @@ document.addEventListener("keydown", (e) => {
             stopEdit();
         }
     } else {
+        if (e.code == "KeyF") {
+            if (e.shiftKey) {
+                if (focusedItem.parent) {
+                    changeFocus(focusedItem.parent);
+                }
+            } else changeFocus(selectedItem);
+        }
         if (e.code == "KeyS" && e.metaKey) {
             saveItemsToLocalStorage(root);
             e.preventDefault();
@@ -188,9 +216,11 @@ document.addEventListener("keydown", (e) => {
             changeSelection(itemToSelect);
         } else if (e.code == "KeyH") {
             if (e.altKey) {
-                moveItemLeft(selectedItem);
-                layout();
-                updateSelectionPosition();
+                if (selectedItem.parent != focusedItem) {
+                    moveItemLeft(selectedItem);
+                    layout();
+                    updateSelectionPosition();
+                }
             } else if (selectedItem.isOpen) {
                 selectedItem.isOpen = false;
 
@@ -268,25 +298,21 @@ type View = {
 const views = new Map<Item, View>();
 
 let selectedItem: Item;
+let focusedItem: Item;
 let selectedItemY = spring(50, slowAnim);
 let selectedItemX = spring(0, slowAnim);
 let selectedItemWidth = spring(screenWidth, slowAnim);
+let selectedItemHeight = spring(spacings.rowHeight, slowAnim);
 
 function updateOrCreateView(x: number, y: number, item: Item) {
-    const existingView = views.get(item);
-    if (existingView) {
-        animateto(existingView.x, x);
-        animateto(existingView.y, y);
-        const newHeight = item.isOpen
-            ? getOpenChildrenCount(item) * spacings.rowHeight
-            : 0;
-        animateto(existingView.childrenHeight, newHeight);
-        return existingView;
-    } else {
-        const newView: View = {
-            x: spring(x, slowAnim),
-            y: spring(y, slowAnim),
-            opacity: spring(1, slowAnim),
+    let existingView = views.get(item);
+    const parentView = views.get(item.parent);
+
+    if (!existingView) {
+        existingView = {
+            x: spring(parentView ? parentView.x.target : x, slowAnim),
+            y: spring(parentView ? parentView.y.target : y, slowAnim),
+            opacity: spring(0, slowAnim),
             childrenHeight: item.isOpen
                 ? spring(
                       getOpenChildrenCount(item) * spacings.rowHeight,
@@ -294,18 +320,38 @@ function updateOrCreateView(x: number, y: number, item: Item) {
                   )
                 : spring(0, slowAnim),
         };
-        views.set(item, newView);
-        return newView;
+        views.set(item, existingView);
     }
+
+    animateto(existingView.x, x);
+    animateto(existingView.y, y);
+    animateto(existingView.opacity, 1);
+    const newHeight = item.isOpen
+        ? getOpenChildrenCount(item) * spacings.rowHeight
+        : 0;
+    animateto(existingView.childrenHeight, newHeight);
+    return existingView;
 }
 
 let treeHeight = 0;
 
+function changeFocus(item: Item) {
+    focusedItem = item;
+
+    //TODO: check if selected item is visible
+    views.clear();
+    layout();
+    updateSelectionPosition();
+}
+
 export function layout() {
     treeHeight =
-        layoutTree(spacings.padding, spacings.padding, root).height +
+        layoutTree(spacings.padding, spacings.padding + 30, focusedItem)
+            .height +
         spacings.rowHeight / 2 +
         spacings.padding;
+    offset.target = clampOffset(offset.target);
+    offset.isAnimating = true;
 }
 
 function itemWidth(item: Item) {
@@ -387,15 +433,25 @@ function onTick(time: number) {
 
     ctx.translate(0, -offset.current);
 
-    ctx.textBaseline = "middle";
-
     ctx.fillStyle = colors.selectedRect;
     ctx.fillRect(
         selectedItemX.current,
         selectedItemY.current,
         selectedItemWidth.current,
-        spacings.rowHeight
+        selectedItemHeight.current
     );
+
+    ctx.fillStyle = colors.text;
+    ctx.font = `${spacings.titleFontWeight} ${spacings.titleFontSize}px ${spacings.font}`;
+
+    ctx.fillText(
+        focusedItem.title,
+        spacings.padding - spacings.iconSize / 2 - 4,
+        spacings.padding
+    );
+
+    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
+    ctx.textBaseline = "middle";
 
     for (const item of views.keys()) {
         const { x: xPos, y: yPos, opacity, childrenHeight } = views.get(item)!;
@@ -477,6 +533,8 @@ function onTick(time: number) {
     requestAnimationFrame(onTick);
 }
 
+focusedItem = root;
+
 layout();
 changeSelection(root.children[0]);
 
@@ -486,6 +544,10 @@ function clamp(v: number, min: number, max: number) {
     if (v < min) return min;
     if (v > max) return max;
     return v;
+}
+function max(v1: number, v2: number) {
+    if (v1 > v2) return v1;
+    return v2;
 }
 
 function lerp(from: number, to: number, lerping: number) {

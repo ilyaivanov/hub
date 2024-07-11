@@ -197,3 +197,13 @@ export function getOpenChildrenCount(item: Item) {
     }
     return res;
 }
+
+export function isParentOrSame(child: Item, parent: Item) {
+    let p = child;
+    while (p) {
+        if (p == parent) return true;
+
+        p = p.parent;
+    }
+    return false;
+}

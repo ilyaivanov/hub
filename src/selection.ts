@@ -1,3 +1,4 @@
+import { isFocused } from "./index";
 import { Item, isRoot } from "./tree";
 
 export function getItemToSelectAfterRemovingSelected(item: Item) {
@@ -20,9 +21,9 @@ export const getItemAbove = (item: Item): Item | undefined => {
 };
 
 export function getItemBelow(item: Item) {
-    return item.isOpen && item.children.length > 0
-        ? item.children[0]
-        : getFollowingItem(item);
+    if ((item.isOpen || isFocused(item)) && item.children.length > 0)
+        return item.children[0];
+    return getFollowingItem(item);
 }
 
 const getFollowingItem = (item: Item): Item | undefined => {

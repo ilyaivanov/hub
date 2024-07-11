@@ -67,9 +67,6 @@ export function tick(deltaTime: number) {
         const acceleration = (stiffness * range - dumper * speed) * (1 / mass);
 
         const next = anim.current + (speed + acceleration) * deltaSec;
-        if (anim.name == "anim") {
-            console.log(anim.lastValue, anim.current, next);
-        }
         anim.lastValue = anim.current;
         anim.current = next;
     }

@@ -4,6 +4,8 @@ export const spacings = {
     padding: 25,
     fontSize: 13,
     fontWeight: 300,
+    titleFontSize: 22,
+    titleFontWeight: 600,
     font: `-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif`,
