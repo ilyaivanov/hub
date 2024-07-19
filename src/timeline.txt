@@ -14,7 +14,9 @@
 [ ] Views (board, miller, gallery, long list)
 [ ] Text reflow
 [ ] Multiple selection
-
+[ ] Splits
+[ ] Links
+[ ] Tags
 
 
 Focus

@@ -7,7 +7,7 @@ import {
     moveItemRight,
     moveItemUp,
 } from "./movement";
-import { saveItemsToLocalStorage } from "./persistance";
+import { loadFromFile, saveToFile } from "./persistance";
 import {
     getItemAbove,
     getItemBelow,
@@ -145,7 +145,8 @@ document.addEventListener("keydown", (e) => {
             } else changeFocus(selectedItem);
         }
         if (e.code == "KeyS" && e.metaKey) {
-            saveItemsToLocalStorage(root);
+            saveToFile(root);
+            // saveItemsToLocalStorage(root);
             e.preventDefault();
         }
         if (e.code == "KeyV") {
@@ -246,6 +247,8 @@ document.addEventListener("keydown", (e) => {
                 moveItemRight(selectedItem);
                 layout();
                 updateSelectionPosition();
+            } else if (e.metaKey) {
+                loadFromFile();
             } else if (
                 selectedItem.children.length > 0 &&
                 !selectedItem.isOpen
@@ -444,6 +447,7 @@ function onTick(time: number) {
     ctx.fillStyle = colors.text;
     ctx.font = `${spacings.titleFontWeight} ${spacings.titleFontSize}px ${spacings.font}`;
 
+    ctx.textBaseline = "middle";
     ctx.fillText(
         focusedItem.title,
         spacings.padding - spacings.iconSize / 2 - 4,
@@ -451,7 +455,6 @@ function onTick(time: number) {
     );
 
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
-    ctx.textBaseline = "middle";
 
     for (const item of views.keys()) {
         const { x: xPos, y: yPos, opacity, childrenHeight } = views.get(item)!;

@@ -2,9 +2,7 @@ import { blueGrey, cyan, grey } from "./swatches";
 
 export const spacings = {
     padding: 25,
-    fontSize: 12,
-    rowHeight: 20,
-    selectedRowExtraSpace: 4,
+    fontSize: 13,
     fontWeight: 300,
     titleFontSize: 22,
     titleFontWeight: 600,
@@ -12,6 +10,7 @@ export const spacings = {
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif`,
     iconSize: 8,
+    rowHeight: 26,
     xStep: 20,
     textToIcon: 8,
 };

@@ -8,7 +8,7 @@ export type Animated = {
     props: AnimationProps;
     name?: string;
 };
-type AnimationProps = {
+export type AnimationProps = {
     stiffness: number;
     dumper: number;
     mass: number;

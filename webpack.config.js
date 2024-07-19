@@ -8,7 +8,7 @@ const CopyPlugin = require("copy-webpack-plugin");
 module.exports = (env, argv) => {
     const isProd = argv.mode === "production";
     return {
-        entry: "./src/index.ts",
+        entry: "./simple/index.ts",
         output: {
             path: path.resolve(__dirname, "build"),
             filename: "app.[chunkhash].js",

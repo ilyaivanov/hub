@@ -1,4 +1,4 @@
-import { b } from "./b";
+// import { b } from "./b";
 import { loadItemsFromLocalStorage } from "./persistance";
 
 export type Item = {
@@ -123,8 +123,8 @@ const defaultItems = i("Root", [
     i("Fahrenheit Project"),
 ]);
 
-// const savedRoot = loadItemsFromLocalStorage();
-const savedRoot = undefined;
+const savedRoot = loadItemsFromLocalStorage();
+// const savedRoot = undefined;
 
 function map(d: Item): Item {
     // const v = (b as any)[id];
@@ -134,7 +134,7 @@ function map(d: Item): Item {
     return item;
 }
 // const mapped = map("HOME");
-export const root = map(b as any); //mapped; //savedRoot || defaultItems;
+export const root = savedRoot || defaultItems;
 
 export function isRoot(item: Item) {
     return !item.parent;
