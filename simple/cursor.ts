@@ -18,3 +18,15 @@ export function moveRight(state: AppState) {
     if (state.cursor.col < state.items[state.cursor.row].length)
         state.cursor.col += 1;
 }
+
+export function jumpWordForward(state: AppState) {}
+
+export function jumpWordBackward(state: AppState) {}
+
+export function moveStartOfItem(state: AppState) {
+    state.cursor.col = 0;
+}
+
+export function moveEndOfItem(state: AppState) {
+    state.cursor.col = state.items[state.cursor.row].length;
+}
