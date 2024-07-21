@@ -1,6 +1,5 @@
-import { colors, dark, light, setColors, spacings } from "../src/consts";
+import { colors, spacings } from "./consts";
 import { Cursor } from "./cursor";
-import { loadFromFile, saveToFile } from "./infra/files";
 import { insertTextAt } from "./infra/string";
 import { onKeyDown } from "./keyboardActions";
 

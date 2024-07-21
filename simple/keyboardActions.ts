@@ -3,16 +3,21 @@ import { AppState } from "./index";
 import { loadFromFile, saveToFile } from "./infra/files";
 import { insertTextAt } from "./infra/string";
 
-function action(key: string, fn: (state: AppState) => void) {
+function action(key: string, fn: (state: AppState) => void | Promise<void>) {
     return { key, meta: false, fn };
 }
 
-function actionMeta(key: string, fn: (state: AppState) => void) {
+function actionMeta(
+    key: string,
+    fn: (state: AppState) => void | Promise<void>
+) {
     return { key, meta: true, fn };
 }
 
 const normalModeActions = [
-    action("KeyI", (state) => (state.mode = "edit")),
+    action("KeyI", (state) => {
+        state.mode = "edit";
+    }),
     action("KeyH", moveLeft),
     action("KeyJ", moveDown),
     action("KeyK", moveUp),
@@ -39,7 +44,9 @@ const normalModeActions = [
 ];
 
 const editModeActions = [
-    action("Escape", (state) => (state.mode = "normal")),
+    action("Escape", (state) => {
+        state.mode = "normal";
+    }),
     action("Enter", (state) => {
         const { items, cursor } = state;
         items.splice(cursor.row + 1, 0, "");
@@ -69,7 +76,7 @@ export async function onKeyDown(state: AppState, e: KeyboardEvent) {
         throw new Error(`Found multiple actions for ${e.code}`);
     else if (action.length == 1) {
         e.preventDefault();
-        action[0].fn(state);
+        await action[0].fn(state);
     } else if (mode == "edit") {
         if (e.key.length == 1) {
             items[cursor.row] = insertTextAt(
