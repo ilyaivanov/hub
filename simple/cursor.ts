@@ -19,9 +19,19 @@ export function moveRight(state: AppState) {
         state.cursor.col += 1;
 }
 
-export function jumpWordForward(state: AppState) {}
+export function jumpWordForward(state: AppState) {
+    const item = state.items[state.cursor.row];
+    const nextSpace = item.indexOf(" ", state.cursor.col + 1);
+    if (nextSpace > 0) state.cursor.col = nextSpace + 1;
+    else state.cursor.col = item.length;
+}
 
-export function jumpWordBackward(state: AppState) {}
+export function jumpWordBackward(state: AppState) {
+    const item = state.items[state.cursor.row];
+    const nextSpace = item.lastIndexOf(" ", state.cursor.col - 2);
+    if (nextSpace > 0) state.cursor.col = nextSpace + 1;
+    else state.cursor.col = item.length;
+}
 
 export function moveStartOfItem(state: AppState) {
     state.cursor.col = 0;

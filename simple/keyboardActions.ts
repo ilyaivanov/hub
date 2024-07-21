@@ -1,4 +1,6 @@
 import {
+    jumpWordBackward,
+    jumpWordForward,
     moveDown,
     moveEndOfItem,
     moveLeft,
@@ -30,6 +32,9 @@ const normalModeActions = [
     action("KeyJ", moveDown),
     action("KeyK", moveUp),
     action("KeyL", moveRight),
+
+    action("KeyW", jumpWordForward),
+    action("KeyB", jumpWordBackward),
 
     action("KeyO", (state) => {
         state.items.splice(state.cursor.row + 1, 0, "");
