@@ -8,6 +8,7 @@ export const spacings = {
     fontWeight: 300,
     titleFontSize: 22,
     titleFontWeight: 600,
+    // font: "monospace",
     font: `-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif`,

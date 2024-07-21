@@ -1,5 +1,8 @@
 import { colors, dark, light, setColors, spacings } from "../src/consts";
-import { loadFromFile, saveToFile } from "./filePersistance";
+import { Cursor } from "./cursor";
+import { loadFromFile, saveToFile } from "./infra/files";
+import { insertTextAt } from "./infra/string";
+import { onKeyDown } from "./keyboardActions";
 
 const canvas = document.createElement("canvas");
 const ctx = canvas.getContext("2d")!;
@@ -27,17 +30,19 @@ window.addEventListener("resize", () => {
     render();
 });
 
-const padding = 10;
-
-const cursorPos = {
-    line: 0,
-    char: 3,
+export type AppState = {
+    cursor: Cursor;
+    mode: "normal" | "edit";
+    items: string[];
 };
 
-type Mode = "normal" | "edit";
-let mode: Mode = "normal";
+const padding = 10;
 
-let items = ["foo", "bar", "buzz"];
+const state: AppState = {
+    cursor: { col: 0, row: 0 },
+    items: ["foo", "bar", "buzz"],
+    mode: "normal",
+};
 
 function render() {
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
@@ -52,6 +57,7 @@ function render() {
     ctx.fillStyle = colors.text;
     ctx.textBaseline = "middle";
 
+    const { items, cursor, mode } = state;
     for (let i = 0; i < items.length; i++) {
         ctx.fillText(items[i], x, y);
         y += h;
@@ -61,94 +67,28 @@ function render() {
     const cursorWidth = 1.5;
 
     let cursorX = 0;
-    let line = items[cursorPos.line];
+    let line = items[cursor.row];
     if (line) {
-        const subline = line.slice(0, cursorPos.char);
+        const subline = line.slice(0, cursor.col);
         cursorX = ctx.measureText(subline).width - cursorWidth / 2;
     }
 
-    ctx.fillRect(
-        padding + cursorX,
-        padding + cursorPos.line * h,
-        cursorWidth,
-        h
-    );
+    ctx.fillRect(padding + cursorX, padding + cursor.row * h, cursorWidth, h);
 }
 render();
 
 document.addEventListener("keydown", async (e) => {
-    if (mode == "normal") {
-        if (e.code == "KeyS" && e.metaKey) {
-            saveToFile(items.join("\n"));
-            e.preventDefault();
-        } else if (e.code == "KeyO" && e.metaKey) {
-            e.preventDefault();
-
-            const lines = await loadFromFile();
-            if (lines) {
-                cursorPos.char = 0;
-                cursorPos.line = 0;
-                items = lines.split("\n");
-            }
-        } else if (e.code == "KeyI") mode = "edit";
-        else if (e.code == "KeyJ") {
-            if (cursorPos.line < items.length - 1) cursorPos.line += 1;
-        } else if (e.code == "KeyK") {
-            if (cursorPos.line > 0) cursorPos.line -= 1;
-        } else if (e.code == "KeyH") {
-            if (cursorPos.char > 0) cursorPos.char -= 1;
-        } else if (e.code == "KeyL") {
-            if (cursorPos.char < items[cursorPos.line].length)
-                cursorPos.char += 1;
-        } else if (e.code == "KeyD") {
-            items.splice(cursorPos.line, 1);
-            cursorPos.char = 0;
-
-            if (cursorPos.line > 0) cursorPos.line -= 1;
-
-            if (items.length == 0) items.push("");
-        }
-    } else {
-        if (e.code == "Escape") mode = "normal";
-        if (e.code == "Enter") {
-            items.splice(cursorPos.line + 1, 0, "");
-            cursorPos.line++;
-            cursorPos.char = 0;
-        }
-
-        if (e.code == "Backspace") {
-            if (cursorPos.char > 0) {
-                const newLine = items[cursorPos.line].split("");
-
-                newLine.splice(cursorPos.char - 1, 1);
-
-                items[cursorPos.line] = newLine.join("");
-                cursorPos.char--;
-            }
-        }
-
-        if (e.key.length == 1) {
-            insertTextIntoPosition(e.key);
-        }
-    }
-
-    console.log(cursorPos);
-
+    await onKeyDown(state, e);
     render();
 });
-
-function insertTextIntoPosition(str: string) {
-    const newLine = items[cursorPos.line].split("");
-    newLine.splice(cursorPos.char, 0, ...str);
-    items[cursorPos.line] = newLine.join("");
-    cursorPos.char += str.length;
-}
 
 document.addEventListener("paste", (e) => {
     const t = e.clipboardData?.getData("text");
 
+    const { items, cursor } = state;
     if (t) {
-        insertTextIntoPosition(t);
+        items[cursor.row] = insertTextAt(items[cursor.row], cursor.col, t);
+        cursor.col += t.length;
         render();
     }
 });
