@@ -1,11 +1,8 @@
 import { colors, spacings } from "./consts";
-import { fillSquareAt, setCtx } from "./drawing";
+import { canvas, ctx } from "./drawing";
 import { drawCursor, drawParagraph, Paragraph, updateLines } from "./paragraph";
 
 document.body.style.backgroundColor = colors.bg;
-
-const canvas = document.createElement("canvas");
-const ctx = canvas.getContext("2d")!;
 document.body.appendChild(canvas);
 
 let screenWidth = 0;
@@ -69,10 +66,10 @@ function draw(time: number) {
     updateWidths(time);
     for (let i = 0; i < ps.length; i++) {
         const p = ps[i];
-        updateLines(ctx, p);
-        drawParagraph(ctx, p);
+        updateLines(p);
+        drawParagraph(p);
 
-        if (i == 0) drawCursor(ctx, p, cursor);
+        if (i == 0) drawCursor(p, cursor);
     }
 
     ctx.globalAlpha = 0.3;

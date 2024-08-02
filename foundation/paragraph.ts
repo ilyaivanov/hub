@@ -1,3 +1,5 @@
+import { ctx } from "./drawing";
+
 export type Paragraph = {
     text: string;
     x: number;
@@ -8,13 +10,11 @@ export type Paragraph = {
     lines: string[];
 };
 
-export function updateLines(ctx: CanvasRenderingContext2D, p: Paragraph) {
+export function updateLines(p: Paragraph) {
     p.lines = [];
 
     const words = p.text.split(" ");
     let line = "";
-
-    ctx.fillStyle = "white";
 
     for (let i = 0; i < words.length; i++) {
         if (line.length != 0) line += " ";
@@ -30,20 +30,18 @@ export function updateLines(ctx: CanvasRenderingContext2D, p: Paragraph) {
     if (line.length > 0) p.lines.push(line);
 }
 
-export function drawParagraph(ctx: CanvasRenderingContext2D, p: Paragraph) {
+export function drawParagraph(p: Paragraph) {
     const ms = ctx.measureText("o");
     const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
+
+    ctx.fillStyle = "white";
 
     for (let i = 0; i < p.lines.length; i++) {
         ctx.fillText(p.lines[i], p.x, p.y + (i + 1) * h);
     }
 }
 
-export function drawCursor(
-    ctx: CanvasRenderingContext2D,
-    paragraph: Paragraph,
-    cursor: number
-) {
+export function drawCursor(paragraph: Paragraph, cursor: number) {
     const { text, lines } = paragraph;
 
     let currentChars = 0;

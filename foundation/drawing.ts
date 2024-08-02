@@ -1,7 +1,5 @@
-let ctx: CanvasRenderingContext2D;
-export function setCtx(c: CanvasRenderingContext2D) {
-    ctx = c;
-}
+export const canvas = document.createElement("canvas");
+export const ctx = canvas.getContext("2d")!;
 
 export function fillSquareAt(x: number, y: number, size: number) {
     ctx.fillRect(x - size / 2, y - size / 2, size, size);
