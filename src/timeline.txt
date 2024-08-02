@@ -1,3 +1,4 @@
+Build a nice foundation for a Youtube and music notes system. Something which whould allow you to add external
 [y] Tree layout
 [y] Spring animation system
 [y] Tree traversal 

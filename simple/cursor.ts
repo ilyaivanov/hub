@@ -30,7 +30,7 @@ export function jumpWordBackward(state: AppState) {
     const item = state.items[state.cursor.row];
     const nextSpace = item.lastIndexOf(" ", state.cursor.col - 2);
     if (nextSpace > 0) state.cursor.col = nextSpace + 1;
-    else state.cursor.col = item.length;
+    else state.cursor.col = 0;
 }
 
 export function moveStartOfItem(state: AppState) {

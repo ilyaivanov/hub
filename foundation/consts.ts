@@ -2,22 +2,24 @@ import { blueGrey, cyan, grey } from "./swatches";
 
 export const spacings = {
     padding: 25,
-    fontSize: 13,
+    fontSize: 12,
+    rowHeight: 20,
+    selectedRowExtraSpace: 4,
     fontWeight: 300,
     titleFontSize: 22,
     titleFontWeight: 600,
+    // font: "monospace",
     font: `-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif`,
     iconSize: 8,
-    rowHeight: 26,
     xStep: 20,
     textToIcon: 8,
 };
 
 const swatches = grey;
 export const dark = {
-    bg: "#1e2021",
+    bg: "#1a1a1a",
     lines: swatches["800"],
     icons: swatches["500"],
     text: swatches["100"],

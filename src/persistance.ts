@@ -1,4 +1,4 @@
-import { Item } from "./tree";
+import { i, insertAsLastChild, Item } from "./tree";
 
 export type PersistedState = {
     selectedIndex: number;
@@ -9,12 +9,13 @@ const types = [
 ];
 
 function sarializeToFile(root: Item) {
-    let res = "";
     const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
+    const lines: string[] = [];
     while (stack.length > 0) {
+        let line = "";
         const { item, level } = stack.pop()!;
 
-        res += `${repeat(" ", level * 2)}${item.title}`;
+        line += `${repeat(" ", level * 2)}${item.title}`;
 
         //add item specific words aka /yt:fdgdvc12 /v:board /closed
         const atrs: string[] = [];
@@ -23,8 +24,9 @@ function sarializeToFile(root: Item) {
 
         if (item.children.length > 0 && !item.isOpen) atrs.push("/closed");
 
-        if (atrs.length > 0) res += " " + atrs.join(" ");
-        res += "\n";
+        if (atrs.length > 0) line += " " + atrs.join(" ");
+
+        lines.push(line);
         if (item.children.length > 0)
             stack.push(
                 ...item.children
@@ -32,7 +34,31 @@ function sarializeToFile(root: Item) {
                     .reverse()
             );
     }
-    return res;
+    return lines.join("\n");
+}
+
+export function parseFileText(text: string): Item {
+    const lines = text.split("\n");
+    const root = i("Root");
+    const stack: { item: Item; level: number }[] = [{ item: root, level: -1 }];
+
+    for (let j = 0; j < lines.length; j++) {
+        const line = lines[j];
+
+        let itemLevel = 0;
+        const item = i(line.trimStart());
+
+        while (line[itemLevel] == " ") itemLevel++;
+
+        while (stack[stack.length - 1].level >= itemLevel) stack.pop();
+
+        insertAsLastChild(stack[stack.length - 1].item, item);
+        stack[stack.length - 1].item.isOpen = true;
+
+        stack.push({ item, level: itemLevel });
+    }
+
+    return root;
 }
 
 export const saveToFile = async (root: Item) => {
@@ -64,12 +90,8 @@ export const loadFromFile = async (): Promise<Item | undefined> => {
 
             const fileData = await fileHandle.getFile();
             const txt: string = await fileData.text();
-
-            const lines = txt.split("\n");
-            const stack = [];
-
-            return undefined;
-            // console.log(txt);
+            console.log(parseFileText(txt));
+            return parseFileText(txt);
             // return txt;
         } catch (e) {
             if (!(e instanceof DOMException && e.name == "AbortError")) {
@@ -113,6 +135,7 @@ export function loadStateFromLocalStorage(): PersistedState | undefined {
     const saved = localStorage.getItem("state");
     if (saved != undefined) return JSON.parse(saved);
 }
+
 function repeat(str: string, times: number) {
     let res = "";
     for (let i = 0; i < times; i++) res += str;

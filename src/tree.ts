@@ -1,5 +1,5 @@
-// import { b } from "./b";
-import { loadItemsFromLocalStorage } from "./persistance";
+//import { b } from "./b";
+import { loadItemsFromLocalStorage, parseFileText } from "./persistance";
 
 export type Item = {
     title: string;
@@ -123,7 +123,14 @@ const defaultItems = i("Root", [
     i("Fahrenheit Project"),
 ]);
 
-const savedRoot = loadItemsFromLocalStorage();
+const file = `One
+Two
+  SubTwo
+    Another item
+Three`;
+
+const savedRoot = parseFileText(file);
+// const savedRoot = loadItemsFromLocalStorage();
 // const savedRoot = undefined;
 
 function map(d: Item): Item {
@@ -133,8 +140,12 @@ function map(d: Item): Item {
     item.isOpen = false;
     return item;
 }
-// const mapped = map("HOME");
-export const root = savedRoot || defaultItems;
+// const mapped = map(b as any);
+export let root = savedRoot || defaultItems;
+
+export function setRoot(item: Item) {
+    root = item;
+}
 
 export function isRoot(item: Item) {
     return !item.parent;

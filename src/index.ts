@@ -24,6 +24,7 @@ import {
     isParentOrSame,
     removeItem,
     root,
+    setRoot,
 } from "./tree";
 
 const canvas = document.createElement("canvas");
@@ -131,7 +132,7 @@ document.addEventListener("wheel", (e) => {
     }
 });
 
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", async (e) => {
     if (itemEdited) {
         if (e.code == "Enter" || e.code == "Escape") {
             stopEdit();
@@ -248,7 +249,17 @@ document.addEventListener("keydown", (e) => {
                 layout();
                 updateSelectionPosition();
             } else if (e.metaKey) {
-                loadFromFile();
+                e.preventDefault();
+                const newRoot = await loadFromFile();
+
+                if (newRoot) {
+                    setRoot(newRoot);
+                    focusedItem = newRoot;
+
+                    views.clear();
+                    layout();
+                    changeSelection(newRoot.children[0]);
+                }
             } else if (
                 selectedItem.children.length > 0 &&
                 !selectedItem.isOpen
@@ -350,9 +361,7 @@ function changeFocus(item: Item) {
 export function layout() {
     treeHeight =
         layoutTree(spacings.padding, spacings.padding + 30, focusedItem)
-            .height +
-        spacings.rowHeight / 2 +
-        spacings.padding;
+            .height + spacings.padding;
     offset.target = clampOffset(offset.target);
     offset.isAnimating = true;
 }
@@ -419,7 +428,7 @@ function layoutTree(x: number, y: number, item: Item) {
 
         y += spacings.rowHeight;
     }
-    return { height: y - startY, width: maxWidth };
+    return { height: y, width: maxWidth };
 }
 function getViewTextX(x: number) {
     return x + spacings.iconSize / 2 + spacings.textToIcon;
