@@ -18,7 +18,8 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
-import { i, isRoot, Item, removeItem } from "./utils/tree";
+import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
+import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -77,7 +78,7 @@ window.addEventListener("resize", () => {
 function getPanelWidth() {
     return Math.min(state.canvas.width, spacings.maxWidth);
 }
-function buildParagraphs() {
+export function buildParagraphs() {
     const panelWidth = getPanelWidth();
     let y = spacings.vPadding;
     let x = spacings.hPadding + state.canvas.width / 2 - panelWidth / 2;
@@ -157,103 +158,17 @@ function draw(time: number) {
     requestAnimationFrame(draw);
 }
 
-function changeSelection(item: Item | undefined) {
-    if (item) {
-        state.selectedItem = item;
-        state.cursor = 0;
-    }
-}
-
 document.body.addEventListener("keydown", async (e) => {
     const item = state.selectedItem;
-    const { cursor, mode } = state;
     if (!item) return;
 
-    if (e.code == "Backspace") {
-        if (cursor > 0) {
-            item.title =
-                item.title.slice(0, cursor - 1) + item.title.slice(cursor);
-            buildParagraphs();
+    let needtoRebuildUI = false;
+    if (state.mode == "Normal") {
+        needtoRebuildUI = handleNormalModeKey(state, e);
+    } else if (state.mode == "Insert")
+        needtoRebuildUI = handleInsertModeKey(state, e);
 
-            state.cursor--;
-        }
-    } else if (mode == "Insert") {
-        if (e.code == "Escape" || e.code == "Enter") {
-            state.mode = "Normal";
-        } else if (e.key.length == 1) {
-            item.title = insertChartAtPosition(item.title, e.key, cursor);
-            state.cursor++;
-            buildParagraphs();
-        }
-    } else {
-        if (e.code == "KeyS" && e.metaKey) {
-            saveToFile(state.root);
-        }
-
-        if (e.code == "KeyD") {
-            const nextItem = getItemToSelectAfterRemovingSelected(item);
-            removeItem(item);
-            if (nextItem) {
-                changeSelection(nextItem);
-                state.cursor = 0;
-            }
-            buildParagraphs();
-        }
-        if (e.code == "KeyL") {
-            if (e.code == "KeyL" && e.metaKey) {
-                e.preventDefault();
-                const newRoot = await loadFromFile();
-                if (newRoot) {
-                    console.log(newRoot);
-                    state.root = newRoot;
-                    changeSelection(state.root.children[0]);
-                    buildParagraphs();
-                }
-            } else if (!item.isOpen) {
-                item.isOpen = true;
-                buildParagraphs();
-            } else if (item.children.length > 0) {
-                changeSelection(item.children[0]);
-                state.cursor = 0;
-            }
-        }
-        if (e.code == "KeyH") {
-            if (item.isOpen) {
-                item.isOpen = false;
-                buildParagraphs();
-            } else if (!isRoot(item.parent)) {
-                changeSelection(item.parent);
-                state.cursor = 0;
-            }
-        }
-        if (e.code == "KeyJ") {
-            changeSelection(getItemBelow(item));
-        }
-        if (e.code == "KeyR" && !e.metaKey) {
-            item.title = "";
-            buildParagraphs();
-            state.mode = "Insert";
-        }
-
-        if (e.code == "KeyI") {
-            if (mode == "Normal") {
-                state.mode = "Insert";
-            }
-        }
-
-        if (e.code == "KeyK") {
-            changeSelection(getItemAbove(item));
-        }
-        if (e.code == "KeyW") {
-            state.cursor = item.title.indexOf(" ", cursor + 1) + 1;
-        }
-        if (e.code == "KeyB")
-            state.cursor = item.title.slice(0, cursor - 1).lastIndexOf(" ") + 1;
-    }
+    if (needtoRebuildUI) buildParagraphs();
 });
-
-function insertChartAtPosition(str: string, ch: string, index: number): string {
-    return str.slice(0, index) + ch + str.slice(index);
-}
 
 requestAnimationFrame(draw);
