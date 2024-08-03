@@ -1,6 +1,6 @@
-import { spacings } from "./consts";
-import { ctx } from "./drawing";
-import { Item } from "./tree";
+import { spacings } from "./utils/consts";
+import { ctx } from "./utils/drawing";
+import { Item } from "./utils/tree";
 
 export type Paragraph = {
     x: number;

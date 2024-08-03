@@ -1,4 +1,4 @@
-import { i, insertAsLastChild, Item } from "./tree";
+import { i, insertAsLastChild, Item } from "./utils/tree";
 
 export type PersistedState = {
     selectedIndex: number;

@@ -1,8 +1,7 @@
 import type { AppState } from "./index";
-import { colors, spacings } from "./consts";
-import { ctx } from "./drawing";
-import { Paragraph } from "./paragraph";
-import { Item, isRoot } from "./tree";
+import { colors, spacings } from "./utils/consts";
+import { ctx } from "./utils/drawing";
+import { Item, isRoot } from "./utils/tree";
 
 export function drawSelecitonBox(state: AppState) {
     const { mode } = state;

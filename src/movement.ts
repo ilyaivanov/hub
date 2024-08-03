@@ -4,7 +4,7 @@ import {
     insertAsLastChild,
     insertItemAfter,
     isRoot,
-} from "./tree";
+} from "./utils/tree";
 
 import { getPreviousSibling } from "./selection";
 

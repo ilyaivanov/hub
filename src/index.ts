@@ -1,5 +1,5 @@
-import { colors, spacings } from "./consts";
-import { canvas, ctx, fillSquareAt, outlineSquareAt } from "./drawing";
+import { colors, spacings } from "./utils/consts";
+import { canvas, ctx, fillSquareAt, outlineSquareAt } from "./utils/drawing";
 import {
     buildParagraph,
     drawCursor,
@@ -18,7 +18,7 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
-import { i, isRoot, Item, removeItem } from "./tree";
+import { i, isRoot, Item, removeItem } from "./utils/tree";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
