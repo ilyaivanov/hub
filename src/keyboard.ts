@@ -18,6 +18,14 @@ function changeSelection(state: AppState, item: Item | undefined) {
 function insertChartAtPosition(str: string, ch: string, index: number): string {
     return str.slice(0, index) + ch + str.slice(index);
 }
+function insertCharAtCurrentPosition(state: AppState, char: string) {
+    state.selectedItem.title = insertChartAtPosition(
+        state.selectedItem.title,
+        char,
+        state.cursor
+    );
+    state.cursor++;
+}
 
 //actions
 function saveRootToFile(state: AppState) {
@@ -150,12 +158,7 @@ export function handleInsertModeKey(state: AppState, e: KeyboardEvent) {
         }
     }
     if (e.key.length == 1) {
-        state.selectedItem.title = insertChartAtPosition(
-            state.selectedItem.title,
-            e.key,
-            state.cursor
-        );
-        state.cursor++;
+        insertCharAtCurrentPosition(state, e.key);
         return true;
     }
     return false;
