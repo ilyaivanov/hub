@@ -90,9 +90,7 @@ export const loadFromFile = async (): Promise<Item | undefined> => {
 
             const fileData = await fileHandle.getFile();
             const txt: string = await fileData.text();
-            console.log(parseFileText(txt));
             return parseFileText(txt);
-            // return txt;
         } catch (e) {
             if (!(e instanceof DOMException && e.name == "AbortError")) {
                 throw e;

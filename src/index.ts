@@ -41,11 +41,12 @@ export type AppState = {
         scale: number;
     };
 };
-const root = loadItemsFromLocalStorage() || i("Root", [i("One"), i("Two")]);
+const initialRoot =
+    loadItemsFromLocalStorage() || i("Root", [i("One"), i("Two")]);
 
 const state: AppState = {
-    root,
-    selectedItem: root.children[0],
+    root: initialRoot,
+    selectedItem: initialRoot.children[0],
     cursor: 0,
     mode: "Normal",
     paragraphs: [],
@@ -83,7 +84,9 @@ function buildParagraphs() {
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
     state.paragraphs = [];
-    const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
+    const stack = state.root.children
+        .map((item) => ({ item, level: 0 }))
+        .reverse();
 
     while (stack.length > 0) {
         const { item, level } = stack.pop()!;
@@ -102,7 +105,7 @@ function buildParagraphs() {
     }
 
     //TODO move persistance elsewhere
-    saveItemsToLocalStorage(root);
+    saveItemsToLocalStorage(state.root);
 }
 
 buildParagraphs();
@@ -184,18 +187,7 @@ document.body.addEventListener("keydown", async (e) => {
         }
     } else {
         if (e.code == "KeyS" && e.metaKey) {
-            saveToFile(root);
-        }
-
-        if (e.code == "KeyL" && e.metaKey) {
-            e.preventDefault();
-            const newRoot = await loadFromFile();
-            if (newRoot) {
-                state.root = newRoot;
-                state.cursor = 0;
-                changeSelection(root.children[0]);
-                buildParagraphs();
-            }
+            saveToFile(state.root);
         }
 
         if (e.code == "KeyD") {
@@ -208,7 +200,16 @@ document.body.addEventListener("keydown", async (e) => {
             buildParagraphs();
         }
         if (e.code == "KeyL") {
-            if (!item.isOpen) {
+            if (e.code == "KeyL" && e.metaKey) {
+                e.preventDefault();
+                const newRoot = await loadFromFile();
+                if (newRoot) {
+                    console.log(newRoot);
+                    state.root = newRoot;
+                    changeSelection(state.root.children[0]);
+                    buildParagraphs();
+                }
+            } else if (!item.isOpen) {
                 item.isOpen = true;
                 buildParagraphs();
             } else if (item.children.length > 0) {
