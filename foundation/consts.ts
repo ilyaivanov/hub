@@ -16,7 +16,7 @@ export const spacings = {
     "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif`,
     iconSize: 8,
-    xStep: 20,
+    xStep: 25,
     textToIcon: 8,
 };
 

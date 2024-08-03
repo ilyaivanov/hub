@@ -1,5 +1,5 @@
 import { colors, spacings } from "./consts";
-import { canvas, ctx, outlineSquareAt } from "./drawing";
+import { canvas, ctx, fillSquareAt, outlineSquareAt } from "./drawing";
 import {
     buildParagraph,
     drawCursor,
@@ -7,7 +7,7 @@ import {
     Paragraph,
 } from "./paragraph";
 import { drawSelecitonBox } from "./selection";
-import { text } from "./text";
+import { isRoot, Item, root } from "./tree";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -38,16 +38,13 @@ const vPadding = 20;
 
 let panelWidth = 0;
 
-type Item = {
-    title: string;
-};
-const items: Item[] = text.split("\n").map((title) => ({ title }));
-
 type Mode = "Normal" | "Insert";
 
 let mode: Mode = "Normal";
 
 let ps: Paragraph[] = [];
+
+const map = new WeakMap<Item, Paragraph>();
 
 function buildParagraphs() {
     panelWidth = Math.min(screenWidth, spacings.maxWidth);
@@ -55,12 +52,26 @@ function buildParagraphs() {
     let x = hPadding + screenWidth / 2 - panelWidth / 2;
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
-    ps = items.map((t) => {
-        const p = buildParagraph(t.title, x, y, panelWidth - hPadding * 2);
+    ps = [];
+    const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
 
+    while (stack.length > 0) {
+        const { item, level } = stack.pop()!;
+        let itemX = x + level * spacings.xStep;
+
+        const maxWidth = panelWidth - hPadding * 2 - level * spacings.xStep;
+        const p = buildParagraph(item, itemX, y, maxWidth);
         y += p.totalHeight;
-        return p;
-    });
+        map.set(item, p);
+        ps.push(p);
+
+        if (item.isOpen)
+            for (let i = item.children.length - 1; i >= 0; i--)
+                stack.push({ item: item.children[i], level: level + 1 });
+    }
+
+    //TODO move persistance elsewhere
+    saveItemsToLocalStorage(root);
 }
 
 buildParagraphs();
@@ -84,10 +95,17 @@ function draw(time: number) {
 
     for (let i = 0; i < ps.length; i++) {
         const p = ps[i];
-        drawParagraph(p);
+        const color =
+            i == selectedParagraph ? colors.selectedText : colors.text;
+        drawParagraph(p, color);
 
-        ctx.strokeStyle = colors.icons;
-        outlineSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
+        if (p.item.children.length > 0) {
+            ctx.fillStyle = colors.icons;
+            fillSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
+        } else {
+            ctx.strokeStyle = colors.icons;
+            outlineSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
+        }
     }
 
     ctx.fillStyle = "white";
@@ -97,37 +115,50 @@ function draw(time: number) {
 }
 
 document.body.addEventListener("keydown", (e) => {
+    const item = ps[selectedParagraph].item;
     if (e.code == "Backspace") {
-        const item = items[selectedParagraph];
         if (cursor > 0) {
             item.title =
                 item.title.slice(0, cursor - 1) + item.title.slice(cursor);
             buildParagraphs();
+
             cursor--;
         }
     } else if (mode == "Insert") {
         if (e.code == "Escape" || e.code == "Enter") {
             mode = "Normal";
         } else if (e.key.length == 1) {
-            items[selectedParagraph].title = insertChartAtPosition(
-                items[selectedParagraph].title,
-                e.key,
-                cursor
-            );
+            item.title = insertChartAtPosition(item.title, e.key, cursor);
             cursor++;
             buildParagraphs();
         }
     } else {
-        if (e.code == "KeyL") cursor++;
-        if (e.code == "KeyH") cursor--;
+        if (e.code == "KeyL") {
+            if (!item.isOpen) {
+                item.isOpen = true;
+                buildParagraphs();
+            } else if (item.children.length > 0) {
+                selectedParagraph = ps.indexOf(map.get(item.children[0])!);
+                cursor = 0;
+            }
+        }
+        if (e.code == "KeyH") {
+            if (item.isOpen) {
+                item.isOpen = false;
+                buildParagraphs();
+            } else if (!isRoot(item.parent)) {
+                selectedParagraph = ps.indexOf(map.get(item.parent)!);
+                cursor = 0;
+            }
+        }
         if (e.code == "KeyJ") {
-            if (selectedParagraph < items.length - 1) {
+            if (selectedParagraph < root.children.length - 1) {
                 selectedParagraph++;
                 cursor = 0;
             }
         }
-        if (e.code == "KeyR") {
-            items[selectedParagraph].title = "";
+        if (e.code == "KeyR" && !e.metaKey) {
+            item.title = "";
             buildParagraphs();
             mode = "Insert";
         }
@@ -145,13 +176,10 @@ document.body.addEventListener("keydown", (e) => {
             }
         }
         if (e.code == "KeyW") {
-            cursor = ps[selectedParagraph].text.indexOf(" ", cursor + 1) + 1;
+            cursor = item.title.indexOf(" ", cursor + 1) + 1;
         }
         if (e.code == "KeyB")
-            cursor =
-                ps[selectedParagraph].text
-                    .slice(0, cursor - 1)
-                    .lastIndexOf(" ") + 1;
+            cursor = item.title.slice(0, cursor - 1).lastIndexOf(" ") + 1;
     }
 });
 
@@ -160,3 +188,15 @@ function insertChartAtPosition(str: string, ch: string, index: number): string {
 }
 
 requestAnimationFrame(draw);
+
+function replacer(key: keyof Item, value: unknown) {
+    if (key == "parent") return undefined;
+    else return value;
+}
+
+export function saveItemsToLocalStorage(root: Item) {
+    localStorage.setItem(
+        "items",
+        JSON.stringify(root, (key, value) => replacer(key as keyof Item, value))
+    );
+}

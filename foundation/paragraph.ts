@@ -1,11 +1,12 @@
 import { spacings } from "./consts";
 import { ctx } from "./drawing";
+import { Item } from "./tree";
 
 export type Paragraph = {
-    text: string;
     x: number;
     y: number;
     maxWidth: number;
+    item: Item;
 
     // derived from above
     lines: string[];
@@ -14,13 +15,13 @@ export type Paragraph = {
 };
 
 export function buildParagraph(
-    text: string,
+    item: Item,
     x: number,
     y: number,
     maxWidth: number
 ) {
     //prettier-ignore
-    const p: Paragraph = { text, x, y, maxWidth, lines: [], totalHeight: 0, lineHeight: 0 };
+    const p: Paragraph = {  x, y, maxWidth, item, lines: [], totalHeight: 0, lineHeight: 0 };
 
     updateLines(p);
     return p;
@@ -33,33 +34,33 @@ export function updateLines(p: Paragraph) {
     const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
     p.lineHeight = h * spacings.lineHeight;
 
-    if (p.text.length == 0) {
+    const text = p.item.title;
+    if (text.length == 0) {
         p.lines.push("");
-        return;
-    }
+    } else {
+        const words = text.split(" ");
+        let line = "";
 
-    const words = p.text.split(" ");
-    let line = "";
+        for (let i = 0; i < words.length; i++) {
+            if (line.length != 0) line += " ";
+            const nextLine = line + words[i];
 
-    for (let i = 0; i < words.length; i++) {
-        if (line.length != 0) line += " ";
-        const nextLine = line + words[i];
-
-        if (ctx.measureText(nextLine).width > p.maxWidth) {
-            p.lines.push(line);
-            line = words[i];
-        } else {
-            line = nextLine;
+            if (ctx.measureText(nextLine).width > p.maxWidth) {
+                p.lines.push(line);
+                line = words[i];
+            } else {
+                line = nextLine;
+            }
         }
+        if (line.length > 0) p.lines.push(line);
     }
-    if (line.length > 0) p.lines.push(line);
 
     p.totalHeight =
         p.lines.length * p.lineHeight + h * spacings.paragraphExtraLineHeight;
 }
 
-export function drawParagraph(p: Paragraph) {
-    ctx.fillStyle = "white";
+export function drawParagraph(p: Paragraph, color: string) {
+    ctx.fillStyle = color;
     ctx.textBaseline = "middle";
     for (let i = 0; i < p.lines.length; i++) {
         ctx.fillText(p.lines[i], p.x, p.y + i * p.lineHeight);
@@ -67,7 +68,8 @@ export function drawParagraph(p: Paragraph) {
 }
 
 export function drawCursor(paragraph: Paragraph, cursor: number) {
-    const { text, lines } = paragraph;
+    const { item, lines } = paragraph;
+    const text = item.title;
 
     let currentChars = 0;
     let currentLine = -2;
