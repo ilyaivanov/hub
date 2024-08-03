@@ -1,6 +1,13 @@
 import { colors, spacings } from "./consts";
-import { canvas, ctx } from "./drawing";
-import { drawCursor, drawParagraph, Paragraph, updateLines } from "./paragraph";
+import { canvas, ctx, outlineSquareAt } from "./drawing";
+import {
+    buildParagraph,
+    drawCursor,
+    drawParagraph,
+    Paragraph,
+} from "./paragraph";
+import { drawSelecitonBox } from "./selection";
+import { text } from "./text";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -23,70 +30,133 @@ function onResize() {
 onResize();
 window.addEventListener("resize", () => {
     onResize();
+    buildParagraphs();
 });
 
-const hPadding = 15;
-const vPadding = hPadding * 0.6;
+const hPadding = 30;
+const vPadding = 20;
 
-const ps: Paragraph[] = [
-    {
-        text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-        x: hPadding,
-        y: vPadding,
-        maxWidth: 0,
-        lines: [],
-    },
-    {
-        text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
-        x: hPadding,
-        y: vPadding,
-        maxWidth: 0,
-        lines: [],
-    },
-];
+let panelWidth = 0;
 
-let cursor = 0;
+type Item = {
+    title: string;
+};
+const items: Item[] = text.split("\n").map((title) => ({ title }));
 
-let splitAtX = screenWidth / 2;
+type Mode = "Normal" | "Insert";
 
-function updateWidths(time: number) {
-    // splitAtX = screenWidth / 2 + Math.sin(time / 1000) * 100;
-    splitAtX = screenWidth / 2 - 150;
-    ps[0].maxWidth = splitAtX - hPadding * 2;
-    ps[1].maxWidth = screenWidth - splitAtX - hPadding * 2;
+let mode: Mode = "Normal";
 
-    ps[1].x = splitAtX + hPadding;
+let ps: Paragraph[] = [];
+
+function buildParagraphs() {
+    panelWidth = Math.min(screenWidth, spacings.maxWidth);
+    let y = vPadding;
+    let x = hPadding + screenWidth / 2 - panelWidth / 2;
+    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
+
+    ps = items.map((t) => {
+        const p = buildParagraph(t.title, x, y, panelWidth - hPadding * 2);
+
+        y += p.totalHeight;
+        return p;
+    });
 }
+
+buildParagraphs();
+
+let selectedParagraph = 0;
+let cursor = 0;
 
 function draw(time: number) {
     ctx.clearRect(0, 0, screenWidth, screenHeight);
 
+    const leftPanel = screenWidth / 2 - panelWidth / 2;
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = "red";
+    ctx.fillRect(leftPanel - 1, 0, 2, screenHeight);
+    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, screenHeight);
+    ctx.globalAlpha = 1;
+
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
-    updateWidths(time);
+    drawSelecitonBox(mode, screenWidth, ps[selectedParagraph]);
+
     for (let i = 0; i < ps.length; i++) {
         const p = ps[i];
-        updateLines(p);
         drawParagraph(p);
 
-        if (i == 0) drawCursor(p, cursor);
+        ctx.strokeStyle = colors.icons;
+        outlineSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
     }
 
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = "green";
-    ctx.fillRect(splitAtX - 1, 0, 2, screenHeight);
-
-    ctx.globalAlpha = 1;
+    ctx.fillStyle = "white";
+    drawCursor(ps[selectedParagraph], cursor);
 
     requestAnimationFrame(draw);
 }
 
 document.body.addEventListener("keydown", (e) => {
-    if (e.code == "KeyL") cursor++;
-    if (e.code == "KeyH") cursor--;
-    if (e.code == "KeyW") cursor = ps[0].text.indexOf(" ", cursor + 1) + 1;
-    if (e.code == "KeyB")
-        cursor = ps[0].text.slice(0, cursor - 1).lastIndexOf(" ") + 1;
+    if (e.code == "Backspace") {
+        const item = items[selectedParagraph];
+        if (cursor > 0) {
+            item.title =
+                item.title.slice(0, cursor - 1) + item.title.slice(cursor);
+            buildParagraphs();
+            cursor--;
+        }
+    } else if (mode == "Insert") {
+        if (e.code == "Escape" || e.code == "Enter") {
+            mode = "Normal";
+        } else if (e.key.length == 1) {
+            items[selectedParagraph].title = insertChartAtPosition(
+                items[selectedParagraph].title,
+                e.key,
+                cursor
+            );
+            cursor++;
+            buildParagraphs();
+        }
+    } else {
+        if (e.code == "KeyL") cursor++;
+        if (e.code == "KeyH") cursor--;
+        if (e.code == "KeyJ") {
+            if (selectedParagraph < items.length - 1) {
+                selectedParagraph++;
+                cursor = 0;
+            }
+        }
+        if (e.code == "KeyR") {
+            items[selectedParagraph].title = "";
+            buildParagraphs();
+            mode = "Insert";
+        }
+
+        if (e.code == "KeyI") {
+            if (mode == "Normal") {
+                mode = "Insert";
+            }
+        }
+
+        if (e.code == "KeyK") {
+            if (selectedParagraph > 0) {
+                selectedParagraph--;
+                cursor = 0;
+            }
+        }
+        if (e.code == "KeyW") {
+            cursor = ps[selectedParagraph].text.indexOf(" ", cursor + 1) + 1;
+        }
+        if (e.code == "KeyB")
+            cursor =
+                ps[selectedParagraph].text
+                    .slice(0, cursor - 1)
+                    .lastIndexOf(" ") + 1;
+    }
 });
+
+function insertChartAtPosition(str: string, ch: string, index: number): string {
+    return str.slice(0, index) + ch + str.slice(index);
+}
 
 requestAnimationFrame(draw);

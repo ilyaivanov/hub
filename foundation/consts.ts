@@ -1,7 +1,10 @@
-import { blueGrey, cyan, grey } from "./swatches";
+import { green, cyan, grey } from "./swatches";
 
 export const spacings = {
     padding: 25,
+    maxWidth: 800,
+    lineHeight: 1.1,
+    paragraphExtraLineHeight: 0.4,
     fontSize: 12,
     rowHeight: 20,
     selectedRowExtraSpace: 4,
@@ -23,7 +26,8 @@ export const dark = {
     lines: swatches["800"],
     icons: swatches["500"],
     text: swatches["100"],
-    selectedRect: swatches["800"],
+    selectedRect: swatches["500"],
+    selectedRectInsert: green["500"],
     selectedText: swatches["050"],
 };
 export const light = {

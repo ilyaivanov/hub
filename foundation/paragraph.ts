@@ -1,3 +1,4 @@
+import { spacings } from "./consts";
 import { ctx } from "./drawing";
 
 export type Paragraph = {
@@ -8,10 +9,34 @@ export type Paragraph = {
 
     // derived from above
     lines: string[];
+    totalHeight: number;
+    lineHeight: number;
 };
+
+export function buildParagraph(
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number
+) {
+    //prettier-ignore
+    const p: Paragraph = { text, x, y, maxWidth, lines: [], totalHeight: 0, lineHeight: 0 };
+
+    updateLines(p);
+    return p;
+}
 
 export function updateLines(p: Paragraph) {
     p.lines = [];
+
+    const ms = ctx.measureText("Foo");
+    const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
+    p.lineHeight = h * spacings.lineHeight;
+
+    if (p.text.length == 0) {
+        p.lines.push("");
+        return;
+    }
 
     const words = p.text.split(" ");
     let line = "";
@@ -28,16 +53,16 @@ export function updateLines(p: Paragraph) {
         }
     }
     if (line.length > 0) p.lines.push(line);
+
+    p.totalHeight =
+        p.lines.length * p.lineHeight + h * spacings.paragraphExtraLineHeight;
 }
 
 export function drawParagraph(p: Paragraph) {
-    const ms = ctx.measureText("o");
-    const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
-
     ctx.fillStyle = "white";
-
+    ctx.textBaseline = "middle";
     for (let i = 0; i < p.lines.length; i++) {
-        ctx.fillText(p.lines[i], p.x, p.y + (i + 1) * h);
+        ctx.fillText(p.lines[i], p.x, p.y + i * p.lineHeight);
     }
 }
 
@@ -60,13 +85,13 @@ export function drawCursor(paragraph: Paragraph, cursor: number) {
 
     const t = text.slice(lineStart, cursor);
 
-    const ms = ctx.measureText("o");
-    const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
+    const cursorHeight = paragraph.lineHeight;
+    const cursorWidth = 1;
     ctx.fillRect(
-        paragraph.x + ctx.measureText(t).width - 0.5,
-        paragraph.y - ms.fontBoundingBoxAscent + (currentLine + 1) * h,
-        1,
-        h
+        paragraph.x + ctx.measureText(t).width - cursorWidth / 2,
+        paragraph.y + currentLine * paragraph.lineHeight - cursorHeight / 2,
+        cursorWidth,
+        cursorHeight
     );
 }
 
