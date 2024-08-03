@@ -6,7 +6,8 @@ import { Item, isRoot } from "./utils/tree";
 export function drawSelecitonBox(state: AppState) {
     const { mode } = state;
     const screenWidth = state.canvas.width;
-    const p = state.paragraphsMap.get(state.selectedItem)!;
+    const p = state.paragraphsMap.get(state.selectedItem);
+    if (!p) return;
 
     const ms = ctx.measureText("foo");
     const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;

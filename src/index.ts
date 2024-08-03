@@ -153,7 +153,9 @@ function draw(time: number) {
     }
 
     ctx.fillStyle = "white";
-    drawCursor(state.paragraphsMap.get(selectedItem!)!, cursor);
+
+    const p = state.paragraphsMap.get(selectedItem!);
+    if (p) drawCursor(p, cursor);
 
     requestAnimationFrame(draw);
 }
@@ -164,9 +166,9 @@ document.body.addEventListener("keydown", async (e) => {
 
     let needtoRebuildUI = false;
     if (state.mode == "Normal") {
-        needtoRebuildUI = handleNormalModeKey(state, e);
+        needtoRebuildUI = await handleNormalModeKey(state, e);
     } else if (state.mode == "Insert")
-        needtoRebuildUI = handleInsertModeKey(state, e);
+        needtoRebuildUI = await handleInsertModeKey(state, e);
 
     if (needtoRebuildUI) buildParagraphs();
 });

@@ -109,14 +109,19 @@ function enterInsertMode(state: AppState) {
     state.mode = "Insert";
 }
 
-type Handler = { code: string; meta?: boolean; fn: (state: AppState) => void };
+type Handler = {
+    code: string;
+    meta?: boolean;
+    preventDefault?: boolean;
+    fn: (state: AppState) => void | Promise<void>;
+};
 
 // order matters
 const normalShortcuts: Handler[] = [
     { code: "KeyS", fn: saveRootToFile, meta: true },
     { code: "KeyO", fn: createItemAfterCurrent },
     { code: "KeyD", fn: removeSelected },
-    { code: "KeyL", fn: loadRootFromFile, meta: true },
+    { code: "KeyL", fn: loadRootFromFile, meta: true, preventDefault: true },
     { code: "KeyL", fn: moveSelectionRight },
     { code: "KeyH", fn: moveSelectionLeft },
     { code: "KeyJ", fn: moveSelectionDown },
@@ -138,22 +143,26 @@ const insertShortcuts: Handler[] = [
 function isShortcutMatches(action: Handler, e: KeyboardEvent) {
     return action.code == e.code && !!action.meta == e.metaKey;
 }
-export function handleNormalModeKey(state: AppState, e: KeyboardEvent) {
+export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {
     for (let i = 0; i < normalShortcuts.length; i++) {
         const action = normalShortcuts[i];
         if (isShortcutMatches(action, e)) {
-            action.fn(state);
+            if (action.preventDefault) e.preventDefault();
+
+            await action.fn(state);
             return true;
         }
     }
     return false;
 }
 
-export function handleInsertModeKey(state: AppState, e: KeyboardEvent) {
+export async function handleInsertModeKey(state: AppState, e: KeyboardEvent) {
     for (let i = 0; i < insertShortcuts.length; i++) {
         const action = insertShortcuts[i];
         if (isShortcutMatches(action, e)) {
-            action.fn(state);
+            if (action.preventDefault) e.preventDefault();
+
+            await action.fn(state);
             return true;
         }
     }
