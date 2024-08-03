@@ -103,18 +103,6 @@ export const loadFromFile = async (): Promise<Item | undefined> => {
     }
 };
 
-function replacer(key: keyof Item, value: unknown) {
-    if (key == "parent") return undefined;
-    else return value;
-}
-
-export function saveItemsToLocalStorage(root: Item) {
-    localStorage.setItem(
-        "items",
-        JSON.stringify(root, (key, value) => replacer(key as keyof Item, value))
-    );
-}
-
 export function loadItemsFromLocalStorage(): Item | undefined {
     const saved = localStorage.getItem("items");
     if (saved) {
@@ -140,4 +128,16 @@ function repeat(str: string, times: number) {
     let res = "";
     for (let i = 0; i < times; i++) res += str;
     return res;
+}
+
+function replacer(key: keyof Item, value: unknown) {
+    if (key == "parent") return undefined;
+    else return value;
+}
+
+export function saveItemsToLocalStorage(root: Item) {
+    localStorage.setItem(
+        "items",
+        JSON.stringify(root, (key, value) => replacer(key as keyof Item, value))
+    );
 }

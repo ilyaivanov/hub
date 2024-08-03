@@ -1,13 +1,14 @@
+import type { AppState } from "./index";
 import { colors, spacings } from "./consts";
 import { ctx } from "./drawing";
 import { Paragraph } from "./paragraph";
 import { Item, isRoot } from "./tree";
 
-export function drawSelecitonBox(
-    mode: string,
-    screenWidth: number,
-    p: Paragraph
-) {
+export function drawSelecitonBox(state: AppState) {
+    const { mode } = state;
+    const screenWidth = state.canvas.width;
+    const p = state.paragraphsMap.get(state.selectedItem)!;
+
     const ms = ctx.measureText("foo");
     const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
 
@@ -17,7 +18,7 @@ export function drawSelecitonBox(
 
     //TODO: paragraphExtraLineHeight is used improperly here, to be corrected
     const selectedBoxY =
-        p.y - h / 2 - (h * spacings.paragraphExtraLineHeight) / 2;
+        p.y - p.lineHeight / 2 - (h * spacings.paragraphExtraLineHeight) / 2;
 
     const selectedBoxHeight =
         p.lines.length * h * spacings.lineHeight +

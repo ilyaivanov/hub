@@ -1,7 +1,8 @@
 import { green, grey } from "./swatches";
 
 export const spacings = {
-    padding: 25,
+    hPadding: 30,
+    vPadding: 20,
     maxWidth: 800,
     lineHeight: 1.1,
     paragraphExtraLineHeight: 0.4,

@@ -6,19 +6,26 @@ import {
     drawParagraph,
     Paragraph,
 } from "./paragraph";
-import { loadFromFile, saveToFile } from "./persistance";
+import {
+    loadFromFile,
+    loadItemsFromLocalStorage,
+    saveItemsToLocalStorage,
+    saveToFile,
+} from "./persistance";
 import {
     drawSelecitonBox,
     getItemAbove,
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
-import { isRoot, Item, removeItem, root, setRoot } from "./tree";
+import { i, isRoot, Item, removeItem } from "./tree";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
 
-type AppState = {
+type Mode = "Normal" | "Insert";
+
+export type AppState = {
     root: Item;
     selectedItem: Item;
     cursor: number;
@@ -34,19 +41,30 @@ type AppState = {
         scale: number;
     };
 };
-let screenWidth = 0;
-let screenHeight = 0;
-let scale = 0;
+const root = loadItemsFromLocalStorage() || i("Root", [i("One"), i("Two")]);
+
+const state: AppState = {
+    root,
+    selectedItem: root.children[0],
+    cursor: 0,
+    mode: "Normal",
+    paragraphs: [],
+    paragraphsMap: new WeakMap(),
+    canvas: { width: 0, height: 0, scale: 0 },
+};
 
 function onResize() {
-    screenWidth = window.innerWidth;
-    screenHeight = window.innerHeight;
-    scale = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const scale = window.devicePixelRatio || 1;
+    state.canvas.width = width;
+    state.canvas.height = height;
+    state.canvas.scale = scale;
 
-    canvas.style.width = `${screenWidth}px`;
-    canvas.style.height = `${screenHeight}px`;
-    canvas.width = Math.floor(screenWidth * scale);
-    canvas.height = Math.floor(screenHeight * scale);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    canvas.width = Math.floor(width * scale);
+    canvas.height = Math.floor(height * scale);
     ctx.scale(scale, scale);
 }
 onResize();
@@ -55,37 +73,28 @@ window.addEventListener("resize", () => {
     buildParagraphs();
 });
 
-const hPadding = 30;
-const vPadding = 20;
-
-let panelWidth = 0;
-
-type Mode = "Normal" | "Insert";
-
-let mode: Mode = "Normal";
-
-let ps: Paragraph[] = [];
-
-const map = new WeakMap<Item, Paragraph>();
-
+function getPanelWidth() {
+    return Math.min(state.canvas.width, spacings.maxWidth);
+}
 function buildParagraphs() {
-    panelWidth = Math.min(screenWidth, spacings.maxWidth);
-    let y = vPadding;
-    let x = hPadding + screenWidth / 2 - panelWidth / 2;
+    const panelWidth = getPanelWidth();
+    let y = spacings.vPadding;
+    let x = spacings.hPadding + state.canvas.width / 2 - panelWidth / 2;
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
-    ps = [];
+    state.paragraphs = [];
     const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
 
     while (stack.length > 0) {
         const { item, level } = stack.pop()!;
         let itemX = x + level * spacings.xStep;
 
-        const maxWidth = panelWidth - hPadding * 2 - level * spacings.xStep;
+        const maxWidth =
+            panelWidth - spacings.hPadding * 2 - level * spacings.xStep;
         const p = buildParagraph(item, itemX, y, maxWidth);
         y += p.totalHeight;
-        map.set(item, p);
-        ps.push(p);
+        state.paragraphsMap.set(item, p);
+        state.paragraphs.push(p);
 
         if (item.isOpen)
             for (let i = item.children.length - 1; i >= 0; i--)
@@ -98,55 +107,63 @@ function buildParagraphs() {
 
 buildParagraphs();
 
-let selectedItem: Item | undefined;
-let cursor = 0;
-
 function draw(time: number) {
-    ctx.clearRect(0, 0, screenWidth, screenHeight);
+    const { selectedItem, cursor } = state;
+    const { width, height } = state.canvas;
+    const panelWidth = getPanelWidth();
 
-    const leftPanel = screenWidth / 2 - panelWidth / 2;
+    ctx.clearRect(0, 0, width, height);
+
+    const leftPanel = width / 2 - panelWidth / 2;
     ctx.globalAlpha = 0.3;
     ctx.fillStyle = "red";
-    ctx.fillRect(leftPanel - 1, 0, 2, screenHeight);
-    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, screenHeight);
+    ctx.fillRect(leftPanel - 1, 0, 2, height);
+    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, height);
     ctx.globalAlpha = 1;
 
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
-    drawSelecitonBox(mode, screenWidth, map.get(selectedItem!)!);
+    drawSelecitonBox(state);
 
-    for (let i = 0; i < ps.length; i++) {
-        const p = ps[i];
+    for (let i = 0; i < state.paragraphs.length; i++) {
+        const p = state.paragraphs[i];
         const color =
             p.item == selectedItem ? colors.selectedText : colors.text;
         drawParagraph(p, color);
 
         if (p.item.children.length > 0) {
             ctx.fillStyle = colors.icons;
-            fillSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
+            fillSquareAt(
+                p.x - spacings.hPadding / 2 + 3,
+                p.y,
+                spacings.iconSize
+            );
         } else {
             ctx.strokeStyle = colors.icons;
-            outlineSquareAt(p.x - hPadding / 2 + 3, p.y, spacings.iconSize);
+            outlineSquareAt(
+                p.x - spacings.hPadding / 2 + 3,
+                p.y,
+                spacings.iconSize
+            );
         }
     }
 
     ctx.fillStyle = "white";
-    drawCursor(map.get(selectedItem!)!, cursor);
+    drawCursor(state.paragraphsMap.get(selectedItem!)!, cursor);
 
     requestAnimationFrame(draw);
 }
 
 function changeSelection(item: Item | undefined) {
     if (item) {
-        selectedItem = item;
-        cursor = 0;
+        state.selectedItem = item;
+        state.cursor = 0;
     }
 }
 
-changeSelection(root.children[0]);
-
 document.body.addEventListener("keydown", async (e) => {
-    const item = selectedItem;
+    const item = state.selectedItem;
+    const { cursor, mode } = state;
     if (!item) return;
 
     if (e.code == "Backspace") {
@@ -155,14 +172,14 @@ document.body.addEventListener("keydown", async (e) => {
                 item.title.slice(0, cursor - 1) + item.title.slice(cursor);
             buildParagraphs();
 
-            cursor--;
+            state.cursor--;
         }
     } else if (mode == "Insert") {
         if (e.code == "Escape" || e.code == "Enter") {
-            mode = "Normal";
+            state.mode = "Normal";
         } else if (e.key.length == 1) {
             item.title = insertChartAtPosition(item.title, e.key, cursor);
-            cursor++;
+            state.cursor++;
             buildParagraphs();
         }
     } else {
@@ -174,9 +191,9 @@ document.body.addEventListener("keydown", async (e) => {
             e.preventDefault();
             const newRoot = await loadFromFile();
             if (newRoot) {
-                setRoot(newRoot);
-                cursor = 0;
-                selectedItem = root.children[0];
+                state.root = newRoot;
+                state.cursor = 0;
+                changeSelection(root.children[0]);
                 buildParagraphs();
             }
         }
@@ -186,7 +203,7 @@ document.body.addEventListener("keydown", async (e) => {
             removeItem(item);
             if (nextItem) {
                 changeSelection(nextItem);
-                cursor = 0;
+                state.cursor = 0;
             }
             buildParagraphs();
         }
@@ -196,7 +213,7 @@ document.body.addEventListener("keydown", async (e) => {
                 buildParagraphs();
             } else if (item.children.length > 0) {
                 changeSelection(item.children[0]);
-                cursor = 0;
+                state.cursor = 0;
             }
         }
         if (e.code == "KeyH") {
@@ -205,7 +222,7 @@ document.body.addEventListener("keydown", async (e) => {
                 buildParagraphs();
             } else if (!isRoot(item.parent)) {
                 changeSelection(item.parent);
-                cursor = 0;
+                state.cursor = 0;
             }
         }
         if (e.code == "KeyJ") {
@@ -214,12 +231,12 @@ document.body.addEventListener("keydown", async (e) => {
         if (e.code == "KeyR" && !e.metaKey) {
             item.title = "";
             buildParagraphs();
-            mode = "Insert";
+            state.mode = "Insert";
         }
 
         if (e.code == "KeyI") {
             if (mode == "Normal") {
-                mode = "Insert";
+                state.mode = "Insert";
             }
         }
 
@@ -227,10 +244,10 @@ document.body.addEventListener("keydown", async (e) => {
             changeSelection(getItemAbove(item));
         }
         if (e.code == "KeyW") {
-            cursor = item.title.indexOf(" ", cursor + 1) + 1;
+            state.cursor = item.title.indexOf(" ", cursor + 1) + 1;
         }
         if (e.code == "KeyB")
-            cursor = item.title.slice(0, cursor - 1).lastIndexOf(" ") + 1;
+            state.cursor = item.title.slice(0, cursor - 1).lastIndexOf(" ") + 1;
     }
 });
 
@@ -239,15 +256,3 @@ function insertChartAtPosition(str: string, ch: string, index: number): string {
 }
 
 requestAnimationFrame(draw);
-
-function replacer(key: keyof Item, value: unknown) {
-    if (key == "parent") return undefined;
-    else return value;
-}
-
-export function saveItemsToLocalStorage(root: Item) {
-    localStorage.setItem(
-        "items",
-        JSON.stringify(root, (key, value) => replacer(key as keyof Item, value))
-    );
-}
