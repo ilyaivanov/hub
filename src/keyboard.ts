@@ -6,6 +6,7 @@ import {
     moveItemUp,
 } from "./movement";
 import { loadFromFile, saveToFile } from "./persistance";
+import { clampOffset } from "./scroll";
 import {
     getItemAbove,
     getItemBelow,
@@ -18,6 +19,30 @@ function changeSelection(state: AppState, item: Item | undefined) {
     if (item) {
         state.selectedItem = item;
         state.cursor = 0;
+
+        const itemsToLookAhead = 3;
+
+        const p = state.paragraphsMap.get(state.selectedItem);
+        const { pageHeight, scrollOffset } = state;
+        const { height } = state.canvas;
+        if (p) {
+            const spaceToLookAhead = p.lineHeight * itemsToLookAhead;
+            if (
+                pageHeight > height &&
+                p.y + spaceToLookAhead - height > scrollOffset
+            ) {
+                const targetOffset = p.y - height + spaceToLookAhead;
+                state.scrollOffset = clampOffset(state, targetOffset);
+            } else if (
+                pageHeight > height &&
+                p.y - spaceToLookAhead < scrollOffset
+            ) {
+                const targetOffset = p.y - spaceToLookAhead;
+                state.scrollOffset = clampOffset(state, targetOffset);
+            } else {
+                state.scrollOffset = clampOffset(state, state.scrollOffset);
+            }
+        }
     }
 }
 
@@ -63,7 +88,7 @@ async function loadRootFromFile(state: AppState) {
 
 function moveSelectionRight(state: AppState) {
     const item = state.selectedItem;
-    if (!item.isOpen) {
+    if (!item.isOpen && item.children.length > 0) {
         item.isOpen = true;
     } else if (item.children.length > 0) {
         changeSelection(state, item.children[0]);
@@ -74,8 +99,7 @@ function moveSelectionLeft(state: AppState) {
     if (item.isOpen) {
         item.isOpen = false;
     } else if (!isRoot(item.parent)) {
-        state.selectedItem = item.parent;
-        state.cursor = 0;
+        changeSelection(state, item.parent);
     }
 }
 function moveSelectionUp(state: AppState) {
@@ -128,10 +152,38 @@ function moveSelectedItemUp(state: AppState) {
     moveItemUp(state.selectedItem);
 }
 
+function selectNextSibling(state: AppState) {
+    const children = state.selectedItem.parent.children;
+    const index = state.selectedItem.parent.children.indexOf(
+        state.selectedItem
+    );
+    if (index < children.length - 1)
+        changeSelection(state, children[index + 1]);
+}
+
+function selectPrevSibling(state: AppState) {
+    const children = state.selectedItem.parent.children;
+    const index = state.selectedItem.parent.children.indexOf(
+        state.selectedItem
+    );
+    if (index > 0) changeSelection(state, children[index - 1]);
+}
+function selectFirstChild(state: AppState) {
+    if (state.selectedItem.children.length > 0) {
+        state.selectedItem.isOpen = true;
+        changeSelection(state, state.selectedItem.children[0]);
+    }
+}
+function selectParent(state: AppState) {
+    if (!isRoot(state.selectedItem.parent))
+        changeSelection(state, state.selectedItem.parent);
+}
+
 type Handler = {
     code: string;
     meta?: boolean;
     alt?: boolean;
+    ctrl?: boolean;
     preventDefault?: boolean;
     fn: (state: AppState) => void | Promise<void>;
 };
@@ -143,14 +195,21 @@ const normalShortcuts: Handler[] = [
     { code: "KeyK", fn: moveSelectedItemUp, alt: true },
     { code: "KeyL", fn: moveSelectedItemRight, alt: true },
 
+    { code: "KeyH", fn: selectParent, ctrl: true },
+    { code: "KeyJ", fn: selectNextSibling, ctrl: true },
+    { code: "KeyK", fn: selectPrevSibling, ctrl: true },
+    { code: "KeyL", fn: selectFirstChild, ctrl: true },
+
+    { code: "KeyH", fn: moveSelectionLeft },
+    { code: "KeyJ", fn: moveSelectionDown },
+    { code: "KeyK", fn: moveSelectionUp },
+    { code: "KeyL", fn: moveSelectionRight },
+
     { code: "KeyS", fn: saveRootToFile, meta: true },
     { code: "KeyO", fn: createItemAfterCurrent },
     { code: "KeyD", fn: removeSelected },
     { code: "KeyL", fn: loadRootFromFile, meta: true, preventDefault: true },
-    { code: "KeyL", fn: moveSelectionRight },
-    { code: "KeyH", fn: moveSelectionLeft },
-    { code: "KeyJ", fn: moveSelectionDown },
-    { code: "KeyK", fn: moveSelectionUp },
+
     { code: "KeyR", fn: replaceTitle },
     { code: "KeyI", fn: enterInsertMode },
     { code: "KeyW", fn: jumpWordForward },
@@ -169,7 +228,8 @@ function isShortcutMatches(action: Handler, e: KeyboardEvent) {
     return (
         action.code == e.code &&
         !!action.meta == e.metaKey &&
-        !!action.alt == e.altKey
+        !!action.alt == e.altKey &&
+        !!action.ctrl == e.ctrlKey
     );
 }
 export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {

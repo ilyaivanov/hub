@@ -20,6 +20,7 @@ import {
 } from "./selection";
 import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
 import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
+import { clampOffset } from "./scroll";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -41,6 +42,8 @@ export type AppState = {
         height: number;
         scale: number;
     };
+    pageHeight: number;
+    scrollOffset: number;
 };
 const initialRoot =
     loadItemsFromLocalStorage() || i("Root", [i("One"), i("Two")]);
@@ -53,6 +56,8 @@ const state: AppState = {
     paragraphs: [],
     paragraphsMap: new WeakMap(),
     canvas: { width: 0, height: 0, scale: 0 },
+    pageHeight: 0,
+    scrollOffset: 0,
 };
 
 function onResize() {
@@ -74,6 +79,10 @@ window.addEventListener("resize", () => {
     onResize();
     buildParagraphs();
 });
+
+function lerp(from: number, to: number, factor: number) {
+    return from * (1 - factor) + to * factor;
+}
 
 function getPanelWidth() {
     return Math.min(state.canvas.width, spacings.maxWidth);
@@ -105,6 +114,7 @@ export function buildParagraphs() {
                 stack.push({ item: item.children[i], level: level + 1 });
     }
 
+    state.pageHeight = y;
     //TODO move persistance elsewhere
     saveItemsToLocalStorage(state.root);
 }
@@ -116,6 +126,9 @@ function draw(time: number) {
     const { width, height } = state.canvas;
     const panelWidth = getPanelWidth();
 
+    ctx.resetTransform();
+    ctx.scale(state.canvas.scale, state.canvas.scale);
+
     ctx.clearRect(0, 0, width, height);
 
     const leftPanel = width / 2 - panelWidth / 2;
@@ -124,6 +137,18 @@ function draw(time: number) {
     ctx.fillRect(leftPanel - 1, 0, 2, height);
     ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, height);
     ctx.globalAlpha = 1;
+
+    const { pageHeight, scrollOffset } = state;
+    const scrollWidth = 8;
+    const scrollHeight = (height * height) / pageHeight;
+    const maxOffset = pageHeight - height;
+    const maxScrollY = height - scrollHeight;
+    const scrollY = lerp(0, maxScrollY, scrollOffset / maxOffset);
+
+    ctx.fillStyle = colors.lines;
+    ctx.fillRect(width - scrollWidth, scrollY, scrollWidth, scrollHeight);
+
+    ctx.translate(0, -state.scrollOffset);
 
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
@@ -170,7 +195,14 @@ document.body.addEventListener("keydown", async (e) => {
     } else if (state.mode == "Insert")
         needtoRebuildUI = await handleInsertModeKey(state, e);
 
-    if (needtoRebuildUI) buildParagraphs();
+    if (needtoRebuildUI) {
+        buildParagraphs();
+        state.scrollOffset = clampOffset(state, state.scrollOffset);
+    }
+});
+
+document.body.addEventListener("wheel", (e) => {
+    state.scrollOffset = clampOffset(state, state.scrollOffset + e.deltaY);
 });
 
 requestAnimationFrame(draw);
