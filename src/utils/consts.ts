@@ -9,7 +9,7 @@ export const spacings = {
     fontSize: 12,
     rowHeight: 20,
     selectedRowExtraSpace: 4,
-    fontWeight: 300,
+    fontWeight: 400,
     titleFontSize: 22,
     titleFontWeight: 600,
     // font: "monospace",

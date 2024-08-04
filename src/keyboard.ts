@@ -1,4 +1,10 @@
 import type { AppState } from "./index";
+import {
+    moveItemDown,
+    moveItemLeft,
+    moveItemRight,
+    moveItemUp,
+} from "./movement";
 import { loadFromFile, saveToFile } from "./persistance";
 import {
     getItemAbove,
@@ -109,15 +115,34 @@ function enterInsertMode(state: AppState) {
     state.mode = "Insert";
 }
 
+function moveSelectedItemRight(state: AppState) {
+    moveItemRight(state.selectedItem);
+}
+function moveSelectedItemLeft(state: AppState) {
+    moveItemLeft(state.selectedItem);
+}
+function moveSelectedItemDown(state: AppState) {
+    moveItemDown(state.selectedItem);
+}
+function moveSelectedItemUp(state: AppState) {
+    moveItemUp(state.selectedItem);
+}
+
 type Handler = {
     code: string;
     meta?: boolean;
+    alt?: boolean;
     preventDefault?: boolean;
     fn: (state: AppState) => void | Promise<void>;
 };
 
 // order matters
 const normalShortcuts: Handler[] = [
+    { code: "KeyH", fn: moveSelectedItemLeft, alt: true },
+    { code: "KeyJ", fn: moveSelectedItemDown, alt: true },
+    { code: "KeyK", fn: moveSelectedItemUp, alt: true },
+    { code: "KeyL", fn: moveSelectedItemRight, alt: true },
+
     { code: "KeyS", fn: saveRootToFile, meta: true },
     { code: "KeyO", fn: createItemAfterCurrent },
     { code: "KeyD", fn: removeSelected },
@@ -141,7 +166,11 @@ const insertShortcuts: Handler[] = [
 ];
 
 function isShortcutMatches(action: Handler, e: KeyboardEvent) {
-    return action.code == e.code && !!action.meta == e.metaKey;
+    return (
+        action.code == e.code &&
+        !!action.meta == e.metaKey &&
+        !!action.alt == e.altKey
+    );
 }
 export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {
     for (let i = 0; i < normalShortcuts.length; i++) {
