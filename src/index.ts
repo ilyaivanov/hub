@@ -194,20 +194,13 @@ function draw(time: number) {
             p.item == selectedItem ? colors.selectedText : colors.text;
         drawParagraph(p, color);
 
+        const iconX = p.x - spacings.hPadding / 2 + 3;
         if (p.item.children.length > 0) {
             ctx.fillStyle = colors.icons;
-            fillSquareAt(
-                p.x - spacings.hPadding / 2 + 3,
-                p.y,
-                spacings.iconSize
-            );
+            fillSquareAt(iconX, p.y, spacings.iconSize);
         } else {
             ctx.strokeStyle = colors.icons;
-            outlineSquareAt(
-                p.x - spacings.hPadding / 2 + 3,
-                p.y,
-                spacings.iconSize
-            );
+            outlineSquareAt(iconX, p.y, spacings.iconSize);
         }
     }
 

@@ -40,22 +40,40 @@ function sarializeToFile(root: Item) {
 export function parseFileText(text: string): Item {
     const lines = text.split("\n");
     const root = i("Root");
-    const stack: { item: Item; level: number }[] = [{ item: root, level: -1 }];
+    const stack: { item: Item; level: number; isClosed: boolean }[] = [
+        { item: root, level: -1, isClosed: false },
+    ];
 
     for (let j = 0; j < lines.length; j++) {
         const line = lines[j];
 
         let itemLevel = 0;
-        const item = i(line.trimStart());
+        let itemText = line.trimStart();
+        let isClosed = itemText.endsWith(" /closed");
+
+        if (isClosed)
+            itemText = itemText.slice(0, itemText.length - " /closed".length);
+
+        const item = i(itemText);
 
         while (line[itemLevel] == " ") itemLevel++;
 
-        while (stack[stack.length - 1].level >= itemLevel) stack.pop();
+        while (stack[stack.length - 1].level >= itemLevel) {
+            const i = stack.pop();
+            if (i && i.item.children.length > 0 && i.isClosed)
+                i.item.isOpen = false;
+        }
 
         insertAsLastChild(stack[stack.length - 1].item, item);
         stack[stack.length - 1].item.isOpen = true;
 
-        stack.push({ item, level: itemLevel });
+        stack.push({ item, level: itemLevel, isClosed });
+    }
+
+    while (stack.length > 0) {
+        const i = stack.pop();
+        if (i && i.item.children.length > 0 && i.isClosed)
+            i.item.isOpen = false;
     }
 
     return root;
