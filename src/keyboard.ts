@@ -12,6 +12,7 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
+import { showMessage } from "./toasts";
 import { addChange, redoLastChange, undoLastChange } from "./undo";
 import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
 
@@ -30,16 +31,16 @@ function changeSelection(state: AppState, item: Item | undefined) {
     }
 }
 
-function insertChartAtPosition(str: string, ch: string, index: number): string {
-    return str.slice(0, index) + ch + str.slice(index);
+function insertStrAtPosition(str: string, str2: string, index: number): string {
+    return str.slice(0, index) + str2 + str.slice(index);
 }
-function insertCharAtCurrentPosition(state: AppState, char: string) {
-    state.selectedItem.title = insertChartAtPosition(
+function insertStrAtCurrentPosition(state: AppState, str: string) {
+    state.selectedItem.title = insertStrAtPosition(
         state.selectedItem.title,
-        char,
+        str,
         state.cursor
     );
-    state.cursor++;
+    state.cursor += str.length;
 }
 
 //actions
@@ -133,20 +134,21 @@ function removeCurrentChar(state: AppState) {
     state.cursor--;
 }
 
+function registerRenameAction(state: AppState) {
+    addChange(state, {
+        type: "rename",
+        item: state.selectedItem,
+        newName: state.selectedItem.title,
+        oldName: state.insertModeItemTitle,
+    });
+}
 function enterNormalMode(state: AppState) {
     state.mode = "Normal";
     if (state.isItemAddedDuringRename) {
         //TODO: when creating a new item you don't need to register a rename change
         // I have no other way to detect if I need to register a rename, besides setting this flag
         state.isItemAddedDuringRename = false;
-    } else {
-        addChange(state, {
-            type: "rename",
-            item: state.selectedItem,
-            newName: state.selectedItem.title,
-            oldName: state.insertModeItemTitle,
-        });
-    }
+    } else registerRenameAction(state);
 }
 
 function enterInsertMode(state: AppState) {
@@ -154,12 +156,12 @@ function enterInsertMode(state: AppState) {
     state.mode = "Insert";
 }
 
-function moveSelectedItem(state: AppState, movement: () => void) {
+function moveSelectedItem(state: AppState, movement: (item: Item) => void) {
     const selected = state.selectedItem;
     const oldParent = selected.parent;
     const oldIndex = oldParent.children.indexOf(selected);
 
-    movement();
+    movement(selected);
 
     const newParent = selected.parent;
     const newIndex = newParent.children.indexOf(selected);
@@ -174,19 +176,19 @@ function moveSelectedItem(state: AppState, movement: () => void) {
 }
 
 function moveSelectedItemRight(state: AppState) {
-    moveSelectedItem(state, () => moveItemRight(state.selectedItem));
+    moveSelectedItem(state, moveItemRight);
 }
 
 function moveSelectedItemLeft(state: AppState) {
-    moveSelectedItem(state, () => moveItemLeft(state.selectedItem));
+    moveSelectedItem(state, moveItemLeft);
 }
 
 function moveSelectedItemDown(state: AppState) {
-    moveSelectedItem(state, () => moveItemDown(state.selectedItem));
+    moveSelectedItem(state, moveItemDown);
 }
 
 function moveSelectedItemUp(state: AppState) {
-    moveSelectedItem(state, () => moveItemUp(state.selectedItem));
+    moveSelectedItem(state, moveItemUp);
 }
 
 function selectNextSibling(state: AppState) {
@@ -243,6 +245,19 @@ type Handler = {
     fn: (state: AppState) => void | Promise<void>;
 };
 
+async function copySelectedItem(state: AppState) {
+    const textToCopy = state.selectedItem.title;
+    await navigator.clipboard.writeText(textToCopy);
+    showMessage(textToCopy);
+}
+
+async function pasteSelectedItem(state: AppState) {
+    const textToPaste = await navigator.clipboard.readText();
+    state.insertModeItemTitle = state.selectedItem.title;
+    insertStrAtCurrentPosition(state, textToPaste);
+    registerRenameAction(state);
+}
+
 // order matters
 const normalShortcuts: Handler[] = [
     { code: "KeyH", fn: moveSelectedItemLeft, alt: true },
@@ -275,12 +290,16 @@ const normalShortcuts: Handler[] = [
 
     { code: "KeyU", fn: redoChange, shift: true },
     { code: "KeyU", fn: undoChange },
+
+    { code: "KeyC", fn: copySelectedItem },
+    { code: "KeyV", fn: pasteSelectedItem, meta: true },
 ];
 
 const insertShortcuts: Handler[] = [
     { code: "Backspace", fn: removeCurrentChar },
     { code: "Enter", fn: createItemAfterCurrent },
     { code: "Escape", fn: enterNormalMode },
+    { code: "KeyV", fn: pasteSelectedItem, meta: true },
 ];
 
 function isShortcutMatches(action: Handler, e: KeyboardEvent) {
@@ -316,7 +335,7 @@ export async function handleInsertModeKey(state: AppState, e: KeyboardEvent) {
         }
     }
     if (e.key.length == 1) {
-        insertCharAtCurrentPosition(state, e.key);
+        insertStrAtCurrentPosition(state, e.key);
         return true;
     }
     return false;
