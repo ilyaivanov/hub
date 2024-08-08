@@ -7,20 +7,14 @@ import {
     Paragraph,
 } from "./paragraph";
 import {
-    loadFromFile,
     loadItemsFromLocalStorage,
     saveItemsToLocalStorage,
-    saveToFile,
 } from "./persistance";
-import {
-    drawSelecitonBox,
-    getItemAbove,
-    getItemBelow,
-    getItemToSelectAfterRemovingSelected,
-} from "./selection";
-import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
+import { drawSelecitonBox } from "./selection";
+import { i, Item } from "./utils/tree";
 import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
 import { clampOffset } from "./scroll";
+import { Change } from "./undo";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -33,6 +27,13 @@ export type AppState = {
     cursor: number;
 
     mode: Mode;
+    insertModeItemTitle: string;
+    isItemAddedDuringRename: boolean;
+
+    //TODO: move this state into AppState
+    changeHistory: Change[];
+
+    currentChange: number;
 
     //UI
     paragraphs: Paragraph[];
@@ -53,12 +54,21 @@ const state: AppState = {
     selectedItem: initialRoot.children[0],
     cursor: 0,
     mode: "Normal",
+
+    changeHistory: [],
+    currentChange: -1,
+
+    isItemAddedDuringRename: false,
+    insertModeItemTitle: "",
     paragraphs: [],
     paragraphsMap: new WeakMap(),
     canvas: { width: 0, height: 0, scale: 0 },
     pageHeight: 0,
     scrollOffset: 0,
 };
+
+//@ts-expect-error
+window.state = state;
 
 function onResize() {
     const width = window.innerWidth;
@@ -121,22 +131,27 @@ export function buildParagraphs() {
 
 buildParagraphs();
 
+function drawTextOverflowLines() {
+    const { width, height } = state.canvas;
+    const panelWidth = getPanelWidth();
+    const leftPanel = width / 2 - panelWidth / 2;
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = "green";
+    ctx.fillRect(leftPanel - 1, 0, 2, height);
+    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, height);
+    ctx.globalAlpha = 1;
+}
+
 function draw(time: number) {
     const { selectedItem, cursor } = state;
     const { width, height } = state.canvas;
-    const panelWidth = getPanelWidth();
 
     ctx.resetTransform();
     ctx.scale(state.canvas.scale, state.canvas.scale);
 
     ctx.clearRect(0, 0, width, height);
 
-    const leftPanel = width / 2 - panelWidth / 2;
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = "red";
-    ctx.fillRect(leftPanel - 1, 0, 2, height);
-    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, height);
-    ctx.globalAlpha = 1;
+    drawTextOverflowLines();
 
     const { pageHeight, scrollOffset } = state;
     const scrollWidth = 8;
@@ -197,9 +212,35 @@ document.body.addEventListener("keydown", async (e) => {
 
     if (needtoRebuildUI) {
         buildParagraphs();
-        state.scrollOffset = clampOffset(state, state.scrollOffset);
+        showSelectedItem();
     }
 });
+
+function showSelectedItem() {
+    const itemsToLookAhead = 3;
+
+    const p = state.paragraphsMap.get(state.selectedItem);
+    const { pageHeight, scrollOffset } = state;
+    const { height } = state.canvas;
+    if (p) {
+        const spaceToLookAhead = p.lineHeight * itemsToLookAhead;
+        if (
+            pageHeight > height &&
+            p.y + spaceToLookAhead - height > scrollOffset
+        ) {
+            const targetOffset = p.y - height + spaceToLookAhead;
+            state.scrollOffset = clampOffset(state, targetOffset);
+        } else if (
+            pageHeight > height &&
+            p.y - spaceToLookAhead < scrollOffset
+        ) {
+            const targetOffset = p.y - spaceToLookAhead;
+            state.scrollOffset = clampOffset(state, targetOffset);
+        } else {
+            state.scrollOffset = clampOffset(state, state.scrollOffset);
+        }
+    }
+}
 
 document.body.addEventListener("wheel", (e) => {
     state.scrollOffset = clampOffset(state, state.scrollOffset + e.deltaY);

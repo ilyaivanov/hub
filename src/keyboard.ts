@@ -12,37 +12,21 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
+import { addChange, redoLastChange, undoLastChange } from "./undo";
 import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
 
 //helpers
 function changeSelection(state: AppState, item: Item | undefined) {
     if (item) {
         state.selectedItem = item;
-        state.cursor = 0;
 
-        const itemsToLookAhead = 3;
-
-        const p = state.paragraphsMap.get(state.selectedItem);
-        const { pageHeight, scrollOffset } = state;
-        const { height } = state.canvas;
-        if (p) {
-            const spaceToLookAhead = p.lineHeight * itemsToLookAhead;
-            if (
-                pageHeight > height &&
-                p.y + spaceToLookAhead - height > scrollOffset
-            ) {
-                const targetOffset = p.y - height + spaceToLookAhead;
-                state.scrollOffset = clampOffset(state, targetOffset);
-            } else if (
-                pageHeight > height &&
-                p.y - spaceToLookAhead < scrollOffset
-            ) {
-                const targetOffset = p.y - spaceToLookAhead;
-                state.scrollOffset = clampOffset(state, targetOffset);
-            } else {
-                state.scrollOffset = clampOffset(state, state.scrollOffset);
-            }
+        let parent = item.parent;
+        while (!isRoot(parent)) {
+            parent.isOpen = true;
+            parent = parent.parent;
         }
+
+        state.cursor = 0;
     }
 }
 
@@ -66,12 +50,31 @@ function saveRootToFile(state: AppState) {
 function createItemAfterCurrent(state: AppState) {
     const newItem = i("");
     insertItemAfter(state.selectedItem, newItem);
+
+    addChange(state, {
+        type: "add",
+        item: newItem,
+        parent: newItem.parent,
+        position: newItem.parent.children.indexOf(newItem),
+        selected: state.selectedItem,
+    });
+
     changeSelection(state, newItem);
-    state.mode = "Insert";
+    console.log("added?");
+    state.isItemAddedDuringRename = true;
+    enterInsertMode(state);
 }
 
 function removeSelected(state: AppState) {
     const nextItem = getItemToSelectAfterRemovingSelected(state.selectedItem);
+    addChange(state, {
+        type: "remove",
+        item: state.selectedItem,
+        position: state.selectedItem.parent.children.indexOf(
+            state.selectedItem
+        ),
+        itemToSelect: nextItem,
+    });
     removeItem(state.selectedItem);
     if (nextItem) {
         changeSelection(state, nextItem);
@@ -80,7 +83,6 @@ function removeSelected(state: AppState) {
 async function loadRootFromFile(state: AppState) {
     const newRoot = await loadFromFile();
     if (newRoot) {
-        console.log(newRoot);
         state.root = newRoot;
         changeSelection(state, state.root.children[0]);
     }
@@ -110,8 +112,8 @@ function moveSelectionDown(state: AppState) {
 }
 
 function replaceTitle(state: AppState) {
+    enterInsertMode(state);
     state.selectedItem.title = "";
-    state.mode = "Insert";
 }
 
 function jumpWordForward(state: AppState) {
@@ -133,23 +135,58 @@ function removeCurrentChar(state: AppState) {
 
 function enterNormalMode(state: AppState) {
     state.mode = "Normal";
+    if (state.isItemAddedDuringRename) {
+        //TODO: when creating a new item you don't need to register a rename change
+        // I have no other way to detect if I need to register a rename, besides setting this flag
+        state.isItemAddedDuringRename = false;
+    } else {
+        addChange(state, {
+            type: "rename",
+            item: state.selectedItem,
+            newName: state.selectedItem.title,
+            oldName: state.insertModeItemTitle,
+        });
+    }
 }
 
 function enterInsertMode(state: AppState) {
+    state.insertModeItemTitle = state.selectedItem.title;
     state.mode = "Insert";
 }
 
+function moveSelectedItem(state: AppState, movement: () => void) {
+    const selected = state.selectedItem;
+    const oldParent = selected.parent;
+    const oldIndex = oldParent.children.indexOf(selected);
+
+    movement();
+
+    const newParent = selected.parent;
+    const newIndex = newParent.children.indexOf(selected);
+    addChange(state, {
+        type: "move",
+        item: selected,
+        oldIndex,
+        oldParent,
+        newIndex,
+        newParent,
+    });
+}
+
 function moveSelectedItemRight(state: AppState) {
-    moveItemRight(state.selectedItem);
+    moveSelectedItem(state, () => moveItemRight(state.selectedItem));
 }
+
 function moveSelectedItemLeft(state: AppState) {
-    moveItemLeft(state.selectedItem);
+    moveSelectedItem(state, () => moveItemLeft(state.selectedItem));
 }
+
 function moveSelectedItemDown(state: AppState) {
-    moveItemDown(state.selectedItem);
+    moveSelectedItem(state, () => moveItemDown(state.selectedItem));
 }
+
 function moveSelectedItemUp(state: AppState) {
-    moveItemUp(state.selectedItem);
+    moveSelectedItem(state, () => moveItemUp(state.selectedItem));
 }
 
 function selectNextSibling(state: AppState) {
@@ -179,11 +216,29 @@ function selectParent(state: AppState) {
         changeSelection(state, state.selectedItem.parent);
 }
 
+function undoChange(state: AppState) {
+    const change = undoLastChange(state);
+    if (change) {
+        if (change.type == "add") changeSelection(state, change.selected);
+        else changeSelection(state, change.item);
+    }
+}
+
+function redoChange(state: AppState) {
+    const change = redoLastChange(state);
+    if (change) {
+        if (change.type == "remove")
+            changeSelection(state, change.itemToSelect);
+        else changeSelection(state, change.item);
+    }
+}
+
 type Handler = {
     code: string;
     meta?: boolean;
     alt?: boolean;
     ctrl?: boolean;
+    shift?: boolean;
     preventDefault?: boolean;
     fn: (state: AppState) => void | Promise<void>;
 };
@@ -207,6 +262,7 @@ const normalShortcuts: Handler[] = [
 
     { code: "KeyS", fn: saveRootToFile, meta: true },
     { code: "KeyO", fn: createItemAfterCurrent },
+    { code: "Enter", fn: createItemAfterCurrent },
     { code: "KeyD", fn: removeSelected },
     { code: "KeyL", fn: loadRootFromFile, meta: true, preventDefault: true },
 
@@ -216,11 +272,14 @@ const normalShortcuts: Handler[] = [
     { code: "KeyB", fn: jumpWordBackward },
     { code: "KeyB", fn: jumpWordBackward },
     { code: "Backspace", fn: removeCurrentChar },
+
+    { code: "KeyU", fn: redoChange, shift: true },
+    { code: "KeyU", fn: undoChange },
 ];
 
 const insertShortcuts: Handler[] = [
     { code: "Backspace", fn: removeCurrentChar },
-    { code: "Enter", fn: enterNormalMode },
+    { code: "Enter", fn: createItemAfterCurrent },
     { code: "Escape", fn: enterNormalMode },
 ];
 
@@ -229,7 +288,8 @@ function isShortcutMatches(action: Handler, e: KeyboardEvent) {
         action.code == e.code &&
         !!action.meta == e.metaKey &&
         !!action.alt == e.altKey &&
-        !!action.ctrl == e.ctrlKey
+        !!action.ctrl == e.ctrlKey &&
+        !!action.shift == e.shiftKey
     );
 }
 export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {

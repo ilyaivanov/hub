@@ -42,11 +42,18 @@ export function removeItem(item: Item) {
     }
 }
 
+export function addItemAt(parent: Item, child: Item, index: number) {
+    parent.children.splice(index, 0, child);
+    child.parent = parent;
+    parent.isOpen = true;
+}
+
 export function insertAsLastChild(parent: Item, item: Item) {
     removeItem(item);
     parent.children.push(item);
     item.parent = parent;
 }
+
 export function insertAsFirstChild(parent: Item, item: Item) {
     removeItem(item);
     parent.children.unshift(item);
@@ -61,6 +68,7 @@ export function insertItemAfter(afterWhichToInsert: Item, newItem: Item) {
     context.splice(context.indexOf(afterWhichToInsert) + 1, 0, newItem);
     newItem.parent = afterWhichToInsert.parent;
 }
+
 export function insertItemBefore(beforeWhichToInsert: Item, newItem: Item) {
     if (newItem.parent) removeItem(newItem);
 
