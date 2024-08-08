@@ -15,6 +15,7 @@ import { i, Item } from "./utils/tree";
 import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
 import { clampOffset } from "./scroll";
 import { Change } from "./undo";
+import { Cursor } from "./cursor";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -23,8 +24,11 @@ type Mode = "Normal" | "Insert";
 
 export type AppState = {
     root: Item;
-    selectedItem: Item;
-    cursor: number;
+
+    MY_CURSOR: Cursor;
+
+    readonly selectedItem: Item;
+    readonly cursor: number;
 
     mode: Mode;
     insertModeItemTitle: string;
@@ -51,9 +55,21 @@ const initialRoot =
 
 const state: AppState = {
     root: initialRoot,
-    selectedItem: initialRoot.children[0],
-    cursor: 0,
+    // selectedItem: initialRoot.children[0],
+    // cursor: 0,
     mode: "Normal",
+
+    get selectedItem() {
+        return state.MY_CURSOR.item;
+    },
+
+    get cursor() {
+        return state.MY_CURSOR.position;
+    },
+    MY_CURSOR: {
+        item: initialRoot.children[0],
+        position: 0,
+    },
 
     changeHistory: [],
     currentChange: -1,
@@ -97,6 +113,7 @@ function lerp(from: number, to: number, factor: number) {
 function getPanelWidth() {
     return Math.min(state.canvas.width, spacings.maxWidth);
 }
+
 export function buildParagraphs() {
     const panelWidth = getPanelWidth();
     let y = spacings.vPadding;
@@ -154,14 +171,16 @@ function draw(time: number) {
     drawTextOverflowLines();
 
     const { pageHeight, scrollOffset } = state;
-    const scrollWidth = 8;
-    const scrollHeight = (height * height) / pageHeight;
-    const maxOffset = pageHeight - height;
-    const maxScrollY = height - scrollHeight;
-    const scrollY = lerp(0, maxScrollY, scrollOffset / maxOffset);
+    if (pageHeight > height) {
+        const scrollWidth = 8;
+        const scrollHeight = (height * height) / pageHeight;
+        const maxOffset = pageHeight - height;
+        const maxScrollY = height - scrollHeight;
+        const scrollY = lerp(0, maxScrollY, scrollOffset / maxOffset);
 
-    ctx.fillStyle = colors.lines;
-    ctx.fillRect(width - scrollWidth, scrollY, scrollWidth, scrollHeight);
+        ctx.fillStyle = colors.lines;
+        ctx.fillRect(width - scrollWidth, scrollY, scrollWidth, scrollHeight);
+    }
 
     ctx.translate(0, -state.scrollOffset);
 

@@ -1,3 +1,10 @@
+import {
+    changeSelection,
+    insertStrAtCurrentPosition,
+    jumpWordBackward,
+    jumpWordForward,
+    removeCurrentChar,
+} from "./cursor";
 import type { AppState } from "./index";
 import {
     moveItemDown,
@@ -6,76 +13,66 @@ import {
     moveItemUp,
 } from "./movement";
 import { loadFromFile, saveToFile } from "./persistance";
-import { clampOffset } from "./scroll";
 import {
     getItemAbove,
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "./selection";
 import { showMessage } from "./toasts";
-import { addChange, redoLastChange, undoLastChange } from "./undo";
-import { i, insertItemAfter, isRoot, Item, removeItem } from "./utils/tree";
-
-//helpers
-function changeSelection(state: AppState, item: Item | undefined) {
-    if (item) {
-        state.selectedItem = item;
-
-        let parent = item.parent;
-        while (!isRoot(parent)) {
-            parent.isOpen = true;
-            parent = parent.parent;
-        }
-
-        state.cursor = 0;
-    }
-}
-
-function insertStrAtPosition(str: string, str2: string, index: number): string {
-    return str.slice(0, index) + str2 + str.slice(index);
-}
-function insertStrAtCurrentPosition(state: AppState, str: string) {
-    state.selectedItem.title = insertStrAtPosition(
-        state.selectedItem.title,
-        str,
-        state.cursor
-    );
-    state.cursor += str.length;
-}
+import {
+    addChange,
+    itemAdded,
+    itemRemoved,
+    redoLastChange,
+    registerRenameAction,
+    undoLastChange,
+} from "./undo";
+import {
+    addItemAt,
+    i,
+    insertItemAfter,
+    insertItemBefore,
+    isRoot,
+    Item,
+    removeItem,
+} from "./utils/tree";
 
 //actions
 function saveRootToFile(state: AppState) {
     saveToFile(state.root);
 }
 
+function itemCreated(state: AppState, item: Item) {
+    itemAdded(state, item);
+    state.isItemAddedDuringRename = true;
+
+    changeSelection(state, item);
+    enterInsertMode(state);
+}
+
 function createItemAfterCurrent(state: AppState) {
     const newItem = i("");
     insertItemAfter(state.selectedItem, newItem);
 
-    addChange(state, {
-        type: "add",
-        item: newItem,
-        parent: newItem.parent,
-        position: newItem.parent.children.indexOf(newItem),
-        selected: state.selectedItem,
-    });
+    itemCreated(state, newItem);
+}
+function createItemBeforeCurrent(state: AppState) {
+    const newItem = i("");
+    insertItemBefore(state.selectedItem, newItem);
 
-    changeSelection(state, newItem);
-    console.log("added?");
-    state.isItemAddedDuringRename = true;
-    enterInsertMode(state);
+    itemCreated(state, newItem);
+}
+function createItemInsideCurrent(state: AppState) {
+    const newItem = i("");
+    addItemAt(state.selectedItem, newItem, 0);
+
+    itemCreated(state, newItem);
 }
 
 function removeSelected(state: AppState) {
     const nextItem = getItemToSelectAfterRemovingSelected(state.selectedItem);
-    addChange(state, {
-        type: "remove",
-        item: state.selectedItem,
-        position: state.selectedItem.parent.children.indexOf(
-            state.selectedItem
-        ),
-        itemToSelect: nextItem,
-    });
+    itemRemoved(state, state.selectedItem);
+
     removeItem(state.selectedItem);
     if (nextItem) {
         changeSelection(state, nextItem);
@@ -105,43 +102,15 @@ function moveSelectionLeft(state: AppState) {
         changeSelection(state, item.parent);
     }
 }
+
 function moveSelectionUp(state: AppState) {
     changeSelection(state, getItemAbove(state.selectedItem));
 }
+
 function moveSelectionDown(state: AppState) {
     changeSelection(state, getItemBelow(state.selectedItem));
 }
 
-function replaceTitle(state: AppState) {
-    enterInsertMode(state);
-    state.selectedItem.title = "";
-}
-
-function jumpWordForward(state: AppState) {
-    state.cursor = state.selectedItem.title.indexOf(" ", state.cursor + 1) + 1;
-}
-function jumpWordBackward(state: AppState) {
-    state.cursor =
-        state.selectedItem.title.slice(0, state.cursor - 1).lastIndexOf(" ") +
-        1;
-}
-
-function removeCurrentChar(state: AppState) {
-    const title = state.selectedItem.title;
-    const { cursor } = state;
-    state.selectedItem.title = title.slice(0, cursor - 1) + title.slice(cursor);
-
-    state.cursor--;
-}
-
-function registerRenameAction(state: AppState) {
-    addChange(state, {
-        type: "rename",
-        item: state.selectedItem,
-        newName: state.selectedItem.title,
-        oldName: state.insertModeItemTitle,
-    });
-}
 function enterNormalMode(state: AppState) {
     state.mode = "Normal";
     if (state.isItemAddedDuringRename) {
@@ -235,6 +204,11 @@ function redoChange(state: AppState) {
     }
 }
 
+function replaceTitle(state: AppState) {
+    enterInsertMode(state);
+    state.selectedItem.title = "";
+}
+
 type Handler = {
     code: string;
     meta?: boolean;
@@ -276,15 +250,18 @@ const normalShortcuts: Handler[] = [
     { code: "KeyL", fn: moveSelectionRight },
 
     { code: "KeyS", fn: saveRootToFile, meta: true },
+
+    { code: "KeyO", fn: createItemBeforeCurrent, shift: true },
+    { code: "KeyO", fn: createItemInsideCurrent, ctrl: true },
     { code: "KeyO", fn: createItemAfterCurrent },
     { code: "Enter", fn: createItemAfterCurrent },
+
     { code: "KeyD", fn: removeSelected },
     { code: "KeyL", fn: loadRootFromFile, meta: true, preventDefault: true },
 
     { code: "KeyR", fn: replaceTitle },
     { code: "KeyI", fn: enterInsertMode },
     { code: "KeyW", fn: jumpWordForward },
-    { code: "KeyB", fn: jumpWordBackward },
     { code: "KeyB", fn: jumpWordBackward },
     { code: "Backspace", fn: removeCurrentChar },
 

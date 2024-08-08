@@ -1,4 +1,5 @@
 import type { AppState } from "./index";
+import { getItemToSelectAfterRemovingSelected } from "./selection";
 import { addItemAt, Item, removeItem } from "./utils/tree";
 
 // dispatch and revert changes
@@ -26,6 +27,35 @@ export type Change =
           newIndex: number;
           newParent: Item;
       };
+
+export function itemAdded(state: AppState, item: Item) {
+    addChange(state, {
+        type: "add",
+        item: item,
+        parent: item.parent,
+        position: item.parent.children.indexOf(item),
+        selected: state.selectedItem,
+    });
+}
+
+export function itemRemoved(state: AppState, item: Item) {
+    const nextItem = getItemToSelectAfterRemovingSelected(item);
+    addChange(state, {
+        type: "remove",
+        item: item,
+        position: item.parent.children.indexOf(item),
+        itemToSelect: nextItem,
+    });
+}
+
+export function registerRenameAction(state: AppState) {
+    addChange(state, {
+        type: "rename",
+        item: state.selectedItem,
+        newName: state.selectedItem.title,
+        oldName: state.insertModeItemTitle,
+    });
+}
 
 export function addChange(state: AppState, change: Change) {
     pushNewChange(state, change);
