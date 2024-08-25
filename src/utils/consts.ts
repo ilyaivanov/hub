@@ -1,6 +1,6 @@
 import { green, grey } from "./swatches";
 
-export const SHOULD_PERSIST_TO_LOCAL_STORAGE = false;
+export const SHOULD_PERSIST_TO_LOCAL_STORAGE = true;
 export const spacings = {
     hPadding: 30,
     vPadding: 20,

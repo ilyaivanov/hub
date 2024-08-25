@@ -5,7 +5,7 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "../selection";
-import { i, isRoot, Item } from "../utils/tree";
+import { addItemAt, getIndexOf, i, isRoot, Item } from "../utils/tree";
 import { AdditionInfo, editTree, RenameInfo } from "./edit";
 
 export type Cursor = {
@@ -233,6 +233,13 @@ export function addItem(state: AppState, where: "after" | "before" | "inside") {
     enterMode(state, "insert");
 }
 
+export function replaceTitle(state: AppState) {
+    enterMode(state, "insert");
+    forEachCursor(state, (c) => {
+        c.item.title = "";
+    });
+}
+
 export function cancelSelection(state: AppState) {
     if (state.cursorState.cursors.find((c) => c.selectionStart != -1))
         forEachCursor(state, (c) => (c.selectionStart = -1));
@@ -258,6 +265,18 @@ export function duplicateCursor(
     else if (direction == "word-right") expandSelectionWordRight(state);
 
     scrollToSelectedItem(state);
+}
+
+export function breakItemIntoTwo(state: AppState) {
+    forEachCursor(state, (c) => {
+        const title = c.item.title;
+        c.item.title = title.substring(0, c.position);
+        const newItem = i(title.substring(c.position));
+        c.position = 0;
+        c.selectionStart = -1;
+        addItemAt(c.item.parent, newItem, getIndexOf(c.item) + 1);
+        c.item = newItem;
+    });
 }
 
 type CursorMovement =
