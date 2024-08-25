@@ -15,7 +15,7 @@ function sarializeToFile(root: Item) {
         let line = "";
         const { item, level } = stack.pop()!;
 
-        line += `${repeat(" ", level * 2)}${item.title}`;
+        line += `${repeat(" ", level * 2)}${item.title.trimStart()}`;
 
         //add item specific words aka /yt:fdgdvc12 /v:board /closed
         const atrs: string[] = [];

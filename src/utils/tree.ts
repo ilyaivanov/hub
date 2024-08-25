@@ -34,6 +34,19 @@ export function isRoot(item: Item) {
     return !item.parent;
 }
 
+export function findParent(
+    item: Item,
+    fn: (parent: Item) => boolean
+): Item | undefined {
+    let parent = item.parent;
+    while (parent) {
+        if (fn(parent)) return parent;
+        parent = parent.parent;
+    }
+
+    return undefined;
+}
+
 export function removeItem(item: Item) {
     if (item.parent) {
         const context = item.parent.children;
@@ -84,6 +97,15 @@ export function getContext(item: Item) {
     throw new Error(
         `Attempt to get context from '${item.title}' which doesn't have a parent`
     );
+}
+
+export function getIndexOf(item: Item) {
+    if (isRoot(item))
+        throw new Error(
+            "You asked for an index of a Root item. You probably shouldn't do that."
+        );
+
+    return item.parent.children.indexOf(item);
 }
 
 export function getOpenChildrenCount(item: Item) {

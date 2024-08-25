@@ -38,69 +38,23 @@ export function updateLines(p: Paragraph) {
     if (text.length == 0) {
         p.lines.push("");
     } else {
-        const words = text.split(" ");
-        let line = "";
+        const paragraphWords = text.split(" ");
+        let lineWords: string[] = [];
 
-        for (let i = 0; i < words.length; i++) {
-            if (line.length != 0) line += " ";
-            const nextLine = line + words[i];
+        for (let i = 0; i < paragraphWords.length; i++) {
+            const word = paragraphWords[i];
+            const nextLine = [...lineWords, word];
 
-            if (ctx.measureText(nextLine).width > p.maxWidth) {
-                p.lines.push(line);
-                line = words[i];
+            if (ctx.measureText(nextLine.join(" ")).width > p.maxWidth) {
+                p.lines.push(lineWords.join(" "));
+                lineWords = [word];
             } else {
-                line = nextLine;
+                lineWords = nextLine;
             }
         }
-        if (line.length > 0) p.lines.push(line);
+        if (lineWords.length > 0) p.lines.push(lineWords.join(" "));
     }
 
     p.totalHeight =
         p.lines.length * p.lineHeight + h * spacings.paragraphExtraLineHeight;
-}
-
-export function drawParagraph(p: Paragraph, color: string) {
-    ctx.fillStyle = color;
-    ctx.textBaseline = "middle";
-    for (let i = 0; i < p.lines.length; i++) {
-        ctx.fillText(p.lines[i], p.x, p.y + i * p.lineHeight);
-    }
-}
-
-export function drawCursor(paragraph: Paragraph, cursor: number) {
-    const { item, lines } = paragraph;
-    const text = item.title;
-
-    let currentChars = 0;
-    let currentLine = -2;
-    for (let i = 0; i < lines.length; i++) {
-        if (currentChars >= cursor) {
-            currentLine = i - 1;
-            break;
-        }
-        currentChars += lines[i].length - 1;
-    }
-    if (currentLine == -2) currentLine = lines.length - 1;
-    else if (currentLine < 0) currentLine = 0;
-
-    const lineStart = sumBy(takeFirst(lines, currentLine), (l) => l.length);
-
-    const t = text.slice(lineStart, cursor);
-
-    const cursorHeight = paragraph.lineHeight;
-    const cursorWidth = 1;
-    ctx.fillRect(
-        paragraph.x + ctx.measureText(t).width - cursorWidth / 2,
-        paragraph.y + currentLine * paragraph.lineHeight - cursorHeight / 2,
-        cursorWidth,
-        cursorHeight
-    );
-}
-
-function takeFirst<T>(items: T[], count: number) {
-    return items.slice(0, count);
-}
-
-function sumBy<T>(items: T[], fn: (item: T) => number) {
-    return items.reduce((prev, item) => prev + fn(item), 0);
 }

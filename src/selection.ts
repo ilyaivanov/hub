@@ -1,33 +1,4 @@
-import type { AppState } from "./index";
-import { colors, spacings } from "./utils/consts";
-import { ctx } from "./utils/drawing";
 import { Item, isRoot } from "./utils/tree";
-
-export function drawSelecitonBox(state: AppState) {
-    const { mode } = state;
-    const screenWidth = state.canvas.width;
-    const p = state.paragraphsMap.get(state.selectedItem);
-    if (!p) return;
-
-    const ms = ctx.measureText("foo");
-    const h = ms.fontBoundingBoxAscent + ms.fontBoundingBoxDescent;
-
-    ctx.globalAlpha = 0.2;
-    ctx.fillStyle =
-        mode == "Normal" ? colors.selectedRect : colors.selectedRectInsert;
-
-    //TODO: paragraphExtraLineHeight is used improperly here, to be corrected
-    const selectedBoxY =
-        p.y - p.lineHeight / 2 - (h * spacings.paragraphExtraLineHeight) / 2;
-
-    const selectedBoxHeight =
-        p.lines.length * h * spacings.lineHeight +
-        h * spacings.paragraphExtraLineHeight;
-
-    ctx.fillRect(0, selectedBoxY, screenWidth, selectedBoxHeight);
-
-    ctx.globalAlpha = 1;
-}
 
 function isFocused(item: Item) {
     return false;

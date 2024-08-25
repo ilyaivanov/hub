@@ -1,5 +1,6 @@
 import { green, grey } from "./swatches";
 
+export const SHOULD_PERSIST_TO_LOCAL_STORAGE = false;
 export const spacings = {
     hPadding: 30,
     vPadding: 20,
@@ -7,7 +8,6 @@ export const spacings = {
     lineHeight: 1.1,
     paragraphExtraLineHeight: 0.4,
     fontSize: 12,
-    rowHeight: 20,
     selectedRowExtraSpace: 4,
     fontWeight: 400,
     titleFontSize: 22,
@@ -29,20 +29,23 @@ export const dark = {
     text: swatches["100"],
     selectedRect: swatches["500"],
     selectedRectInsert: green["500"],
+    cursor: "red",
     selectedText: swatches["050"],
 };
-export const light = {
+export const light: Theme = {
     bg: swatches["050"],
     lines: swatches["100"],
     icons: swatches["600"],
     text: swatches["800"],
     selectedRect: swatches["200"],
+    selectedRectInsert: green["500"],
+    cursor: swatches["800"],
     selectedText: swatches["900"],
 };
+type Theme = typeof dark;
+export let colors: Theme;
 
-export let colors: typeof dark;
-
-export function setColors(c: typeof dark) {
+export function setColors(c: Theme) {
     colors = c;
     document.body.style.backgroundColor = dark.bg;
 }

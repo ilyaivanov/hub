@@ -1,44 +1,38 @@
-import { colors, spacings } from "./utils/consts";
-import { canvas, ctx, fillSquareAt, outlineSquareAt } from "./utils/drawing";
 import {
-    buildParagraph,
-    drawCursor,
-    drawParagraph,
-    Paragraph,
-} from "./paragraph";
+    colors,
+    SHOULD_PERSIST_TO_LOCAL_STORAGE,
+    spacings,
+} from "./utils/consts";
+import { canvas, ctx } from "./utils/drawing";
+import { buildParagraph, Paragraph } from "./paragraph";
 import {
     loadItemsFromLocalStorage,
     saveItemsToLocalStorage,
 } from "./persistance";
-import { drawSelecitonBox } from "./selection";
 import { i, Item } from "./utils/tree";
 import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
-import { clampOffset } from "./scroll";
-import { Change } from "./undo";
-import { Cursor } from "./cursor";
+import { clampOffset, scrollToSelectedItem } from "./scroll";
+import { drawTree } from "./drawTree";
+import { CursorState, getInitialCursorState } from "./cursor/cursor";
+import { Edit } from "./cursor/edit";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
 
-type Mode = "Normal" | "Insert";
-
 export type AppState = {
     root: Item;
 
-    MY_CURSOR: Cursor;
-
-    readonly selectedItem: Item;
-    readonly cursor: number;
-
-    mode: Mode;
-    insertModeItemTitle: string;
     isItemAddedDuringRename: boolean;
 
-    //TODO: move this state into AppState
-    changeHistory: Change[];
-
+    changeHistory: Edit[];
     currentChange: number;
 
+    search: {
+        currentSearchEntrance: number;
+        occurences: number[];
+    };
+
+    cursorState: CursorState;
     //UI
     paragraphs: Paragraph[];
     paragraphsMap: WeakMap<Item, Paragraph>;
@@ -48,40 +42,34 @@ export type AppState = {
         scale: number;
     };
     pageHeight: number;
+    panelWidth: number;
     scrollOffset: number;
 };
+
 const initialRoot =
     loadItemsFromLocalStorage() || i("Root", [i("One"), i("Two")]);
 
 const state: AppState = {
     root: initialRoot,
-    // selectedItem: initialRoot.children[0],
-    // cursor: 0,
-    mode: "Normal",
 
-    get selectedItem() {
-        return state.MY_CURSOR.item;
-    },
-
-    get cursor() {
-        return state.MY_CURSOR.position;
-    },
-    MY_CURSOR: {
-        item: initialRoot.children[0],
-        position: 0,
-    },
-
+    cursorState: getInitialCursorState(initialRoot),
     changeHistory: [],
     currentChange: -1,
 
+    search: {
+        currentSearchEntrance: 0,
+        occurences: [],
+    },
+
     isItemAddedDuringRename: false,
-    insertModeItemTitle: "",
     paragraphs: [],
     paragraphsMap: new WeakMap(),
     canvas: { width: 0, height: 0, scale: 0 },
     pageHeight: 0,
+    panelWidth: 0,
     scrollOffset: 0,
 };
+// selectItem(state.root.children[0]);
 
 //@ts-expect-error
 window.state = state;
@@ -99,6 +87,8 @@ function onResize() {
     canvas.width = Math.floor(width * scale);
     canvas.height = Math.floor(height * scale);
     ctx.scale(scale, scale);
+
+    state.panelWidth = Math.min(state.canvas.width, spacings.maxWidth);
 }
 onResize();
 window.addEventListener("resize", () => {
@@ -106,16 +96,8 @@ window.addEventListener("resize", () => {
     buildParagraphs();
 });
 
-function lerp(from: number, to: number, factor: number) {
-    return from * (1 - factor) + to * factor;
-}
-
-function getPanelWidth() {
-    return Math.min(state.canvas.width, spacings.maxWidth);
-}
-
 export function buildParagraphs() {
-    const panelWidth = getPanelWidth();
+    const { panelWidth } = state;
     let y = spacings.vPadding;
     let x = spacings.hPadding + state.canvas.width / 2 - panelWidth / 2;
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
@@ -143,119 +125,32 @@ export function buildParagraphs() {
 
     state.pageHeight = y;
     //TODO move persistance elsewhere
-    saveItemsToLocalStorage(state.root);
+    if (SHOULD_PERSIST_TO_LOCAL_STORAGE) saveItemsToLocalStorage(state.root);
 }
 
 buildParagraphs();
 
-function drawTextOverflowLines() {
-    const { width, height } = state.canvas;
-    const panelWidth = getPanelWidth();
-    const leftPanel = width / 2 - panelWidth / 2;
-    ctx.globalAlpha = 0.1;
-    ctx.fillStyle = "green";
-    ctx.fillRect(leftPanel - 1, 0, 2, height);
-    ctx.fillRect(leftPanel + panelWidth - 1, 0, 2, height);
-    ctx.globalAlpha = 1;
-}
+function onTick(time: number) {
+    drawTree(state);
 
-function draw(time: number) {
-    const { selectedItem, cursor } = state;
-    const { width, height } = state.canvas;
-
-    ctx.resetTransform();
-    ctx.scale(state.canvas.scale, state.canvas.scale);
-
-    ctx.clearRect(0, 0, width, height);
-
-    drawTextOverflowLines();
-
-    const { pageHeight, scrollOffset } = state;
-    if (pageHeight > height) {
-        const scrollWidth = 8;
-        const scrollHeight = (height * height) / pageHeight;
-        const maxOffset = pageHeight - height;
-        const maxScrollY = height - scrollHeight;
-        const scrollY = lerp(0, maxScrollY, scrollOffset / maxOffset);
-
-        ctx.fillStyle = colors.lines;
-        ctx.fillRect(width - scrollWidth, scrollY, scrollWidth, scrollHeight);
-    }
-
-    ctx.translate(0, -state.scrollOffset);
-
-    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
-
-    drawSelecitonBox(state);
-
-    for (let i = 0; i < state.paragraphs.length; i++) {
-        const p = state.paragraphs[i];
-        const color =
-            p.item == selectedItem ? colors.selectedText : colors.text;
-        drawParagraph(p, color);
-
-        const iconX = p.x - spacings.hPadding / 2 + 3;
-        if (p.item.children.length > 0) {
-            ctx.fillStyle = colors.icons;
-            fillSquareAt(iconX, p.y, spacings.iconSize);
-        } else {
-            ctx.strokeStyle = colors.icons;
-            outlineSquareAt(iconX, p.y, spacings.iconSize);
-        }
-    }
-
-    ctx.fillStyle = "white";
-
-    const p = state.paragraphsMap.get(selectedItem!);
-    if (p) drawCursor(p, cursor);
-
-    requestAnimationFrame(draw);
+    requestAnimationFrame(onTick);
 }
 
 document.body.addEventListener("keydown", async (e) => {
-    const item = state.selectedItem;
-    if (!item) return;
-
     let needtoRebuildUI = false;
-    if (state.mode == "Normal") {
+    if (state.cursorState.mode == "normal") {
         needtoRebuildUI = await handleNormalModeKey(state, e);
-    } else if (state.mode == "Insert")
+    } else if (state.cursorState.mode == "insert")
         needtoRebuildUI = await handleInsertModeKey(state, e);
 
     if (needtoRebuildUI) {
         buildParagraphs();
-        showSelectedItem();
+        scrollToSelectedItem(state);
     }
 });
-
-function showSelectedItem() {
-    const itemsToLookAhead = 3;
-
-    const p = state.paragraphsMap.get(state.selectedItem);
-    const { pageHeight, scrollOffset } = state;
-    const { height } = state.canvas;
-    if (p) {
-        const spaceToLookAhead = p.lineHeight * itemsToLookAhead;
-        if (
-            pageHeight > height &&
-            p.y + spaceToLookAhead - height > scrollOffset
-        ) {
-            const targetOffset = p.y - height + spaceToLookAhead;
-            state.scrollOffset = clampOffset(state, targetOffset);
-        } else if (
-            pageHeight > height &&
-            p.y - spaceToLookAhead < scrollOffset
-        ) {
-            const targetOffset = p.y - spaceToLookAhead;
-            state.scrollOffset = clampOffset(state, targetOffset);
-        } else {
-            state.scrollOffset = clampOffset(state, state.scrollOffset);
-        }
-    }
-}
 
 document.body.addEventListener("wheel", (e) => {
     state.scrollOffset = clampOffset(state, state.scrollOffset + e.deltaY);
 });
 
-requestAnimationFrame(draw);
+requestAnimationFrame(onTick);
