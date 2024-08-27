@@ -19,6 +19,7 @@ import { showMessage } from "./toasts";
 import { redoLastChange, undoLastChange } from "./cursor/edit";
 import { loadFromFile, saveToFile } from "./persistance";
 import { scrollToSelectedItem } from "./scroll";
+import { isRoot } from "./utils/tree";
 
 type Handler = {
     code: string;
@@ -74,9 +75,6 @@ const normalShortcuts: Handler[] = [
     // prettier-ignore
     { code: "KeyB", fn: (s) => expandCursor(s, "jump-word-right"), shift: true },
 
-    // { code: "KeyA", fn: moveCursorLeft },
-    // { code: "KeyF", fn: moveCursorRight },
-
     // prettier-ignore
     { code: "KeyS", fn: (s) => saveToFile(s.root), meta: true, noDef: true },
     { code: "KeyL", fn: loadRootFromFile, meta: true, noDef: true },
@@ -84,16 +82,10 @@ const normalShortcuts: Handler[] = [
     { code: "KeyO", fn: (s) => addItem(s, "before"), shift: true },
     { code: "KeyO", fn: (s) => addItem(s, "inside"), ctrl: true },
     { code: "KeyO", fn: (s) => addItem(s, "after") },
-    // { code: "Enter", fn: createItemAfterCurrent },
     { code: "KeyD", fn: removeSelectedItems },
     { code: "KeyR", fn: replaceTitle },
 
     { code: "KeyI", fn: (s) => enterMode(s, "insert") },
-
-    // { code: "KeyW", fn: expandSelectionByWordForward, shift: true },
-    // { code: "KeyB", fn: expandSelectionByWordBackward, shift: true },
-    // { code: "KeyW", fn: jumpWordForwardAction },
-    // { code: "KeyB", fn: jumpWordBackwardAction },
 
     { code: "Backspace", fn: (s) => removeText(s, "left") },
     { code: "KeyX", fn: (s) => removeText(s, "right") },
@@ -108,12 +100,30 @@ const normalShortcuts: Handler[] = [
     { code: "KeyC", fn: copySelectedItem },
     { code: "KeyV", fn: pasteSelectedItem, meta: true },
 
+    {
+        code: "KeyF",
+        fn: (s) => {
+            s.focused = getPrimaryCursor(s).item;
+        },
+        ctrl: true,
+    },
+
+    {
+        code: "KeyF",
+        fn: (s) => {
+            const oldFocus = s.focused;
+            if (s.focused.parent) s.focused = s.focused.parent;
+
+            if (!oldFocus.isOpen)
+                s.cursorState.cursors = [createCursor(oldFocus)];
+        },
+        ctrl: true,
+        shift: true,
+    },
+
     { code: "Tab", fn: (s) => moveItems(s, "left"), shift: true, noDef: true },
     { code: "Tab", fn: (s) => moveItems(s, "right"), noDef: true },
 
-    // { code: "Digit1", fn: insertDumyItem1, meta: true, preventDefault: true },
-    // { code: "Digit2", fn: insertDumyItem2, meta: true, preventDefault: true },
-    // { code: "Digit3", fn: insertDumyItem3, meta: true, preventDefault: true },
     { code: "Enter", fn: breakItemIntoTwo },
 ];
 

@@ -10,7 +10,7 @@ export const spacings = {
     fontSize: 12,
     selectedRowExtraSpace: 4,
     fontWeight: 400,
-    titleFontSize: 22,
+    titleFontSize: 18,
     titleFontWeight: 600,
     // font: "monospace",
     font: `-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",

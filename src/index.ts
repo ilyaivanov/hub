@@ -9,7 +9,7 @@ import {
     loadItemsFromLocalStorage,
     saveItemsToLocalStorage,
 } from "./persistance";
-import { i, Item } from "./utils/tree";
+import { i, isRoot, Item } from "./utils/tree";
 import { handleInsertModeKey, handleNormalModeKey } from "./keyboard";
 import { clampOffset, scrollToSelectedItem } from "./scroll";
 import { drawTree } from "./drawTree";
@@ -21,6 +21,8 @@ document.body.appendChild(canvas);
 
 export type AppState = {
     root: Item;
+    focused: Item;
+    focusedParagraph: Paragraph;
 
     isItemAddedDuringRename: boolean;
 
@@ -51,6 +53,8 @@ const initialRoot =
 
 const state: AppState = {
     root: initialRoot,
+    focused: initialRoot,
+    focusedParagraph: 0 as any,
 
     cursorState: getInitialCursorState(initialRoot),
     changeHistory: [],
@@ -97,13 +101,27 @@ window.addEventListener("resize", () => {
 });
 
 export function buildParagraphs() {
+    ctx.font = `${spacings.titleFontWeight} ${spacings.titleFontSize}px ${spacings.font}`;
+    state.focusedParagraph = buildParagraph(
+        state.focused,
+        12 + state.canvas.width / 2 - state.panelWidth / 2,
+        20,
+        state.panelWidth - 20 * 2
+    );
+
+    state.paragraphsMap.set(state.focused, state.focusedParagraph);
+
+    const titleOffset = isRoot(state.focused)
+        ? 12
+        : state.focusedParagraph.totalHeight + 20;
+
     const { panelWidth } = state;
-    let y = spacings.vPadding;
+    let y = titleOffset;
     let x = spacings.hPadding + state.canvas.width / 2 - panelWidth / 2;
     ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
     state.paragraphs = [];
-    const stack = state.root.children
+    const stack = state.focused.children
         .map((item) => ({ item, level: 0 }))
         .reverse();
 

@@ -5,7 +5,14 @@ import {
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "../selection";
-import { addItemAt, getIndexOf, i, isRoot, Item } from "../utils/tree";
+import {
+    addItemAt,
+    getIndexOf,
+    i,
+    isParentOrSame,
+    isRoot,
+    Item,
+} from "../utils/tree";
 import { AdditionInfo, editTree, RenameInfo } from "./edit";
 
 export type Cursor = {
@@ -352,7 +359,7 @@ function jumpToStart(state: AppState) {
 function moveSelectionUp(state: AppState) {
     forEachCursor(state, (cursor) => {
         const itemAbove = getItemAbove(cursor.item);
-        if (itemAbove) {
+        if (itemAbove && isParentOrSame(itemAbove, state.focused)) {
             cursor.item = itemAbove;
             cursor.position = 0;
             cursor.selectionStart = -1;
@@ -362,8 +369,8 @@ function moveSelectionUp(state: AppState) {
 
 function moveSelectionDown(state: AppState) {
     forEachCursor(state, (cursor) => {
-        const itemBelow = getItemBelow(cursor.item);
-        if (itemBelow) {
+        const itemBelow = getItemBelow(state, cursor.item);
+        if (itemBelow && isParentOrSame(itemBelow, state.focused)) {
             cursor.item = itemBelow;
             cursor.position = 0;
             cursor.selectionStart = -1;
@@ -395,7 +402,10 @@ function jumpPrevSibling(state: AppState) {
 }
 function jumpParent(state: AppState) {
     forEachCursor(state, (c) => {
-        if (!isRoot(c.item.parent)) {
+        if (
+            !isRoot(c.item.parent) &&
+            isParentOrSame(state.focused, c.item.parent)
+        ) {
             c.item = c.item.parent;
             c.position = 0;
         }
@@ -427,11 +437,11 @@ function moveSelectionRight(state: AppState) {
 
 function expandSelectionDown(state: AppState, timeAfter = 0) {
     const primary = getPrimaryCursor(state);
-    let itemBelow = getItemBelow(primary.item);
+    let itemBelow = getItemBelow(state, primary.item);
     for (let i = 0; i < timeAfter; i++) {
         if (!itemBelow) break;
 
-        itemBelow = getItemBelow(itemBelow);
+        itemBelow = getItemBelow(state, itemBelow);
     }
 
     if (itemBelow) {

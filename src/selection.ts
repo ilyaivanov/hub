@@ -1,7 +1,8 @@
+import { AppState } from "./index";
 import { Item, isRoot } from "./utils/tree";
 
-function isFocused(item: Item) {
-    return false;
+function isFocused(state: AppState, item: Item) {
+    return state.focused == item;
 }
 
 export function getItemToSelectAfterRemovingSelected(item: Item) {
@@ -23,8 +24,8 @@ export const getItemAbove = (item: Item): Item | undefined => {
     }
 };
 
-export function getItemBelow(item: Item) {
-    if ((item.isOpen || isFocused(item)) && item.children.length > 0)
+export function getItemBelow(state: AppState, item: Item) {
+    if ((item.isOpen || isFocused(state, item)) && item.children.length > 0)
         return item.children[0];
     return getFollowingItem(item);
 }

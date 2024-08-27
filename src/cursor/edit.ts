@@ -108,7 +108,7 @@ export function undoLastChange(state: AppState) {
         state.currentChange--;
         revertChange(state, change);
 
-        return change;
+        // return change;
     }
 }
 
@@ -118,7 +118,7 @@ export function redoLastChange(state: AppState) {
         state.currentChange++;
         const change = changeHistory[state.currentChange];
         performChange(state, change);
-        return change;
+        // return change;
     }
 }
 

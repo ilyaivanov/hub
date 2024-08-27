@@ -1,11 +1,11 @@
 // import { cursors, forEachCursor } from "./cursor";
 import { forEachCursor, getPrimaryCursor } from "./cursor/cursor";
 import { AppState } from "./index";
-import { Paragraph } from "./paragraph";
+import type { Paragraph } from "./paragraph";
 import { colors, spacings } from "./utils/consts";
 import { ctx, fillSquareAt, outlineSquareAt } from "./utils/drawing";
 import { lerp } from "./utils/math";
-import { Item } from "./utils/tree";
+import { isRoot, Item } from "./utils/tree";
 
 function drawTextOverflowLines(state: AppState) {
     const { width, height } = state.canvas;
@@ -27,6 +27,7 @@ function drawParagraph(p: Paragraph, color: string) {
 }
 
 export function drawTree(state: AppState) {
+    // console.log(getPrimaryCursor(state).item.title);
     // const { selectedItem, cursor } = state;
     const { width, height } = state.canvas;
 
@@ -50,9 +51,6 @@ export function drawTree(state: AppState) {
     }
 
     ctx.translate(0, -state.scrollOffset);
-
-    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
-
     drawSelecitonBox(state);
 
     forEachCursor(state, (cursor) => {
@@ -61,6 +59,7 @@ export function drawTree(state: AppState) {
             const right = Math.max(cursor.selectionStart, cursor.position);
 
             highlightParagraphText(
+                state,
                 state.paragraphsMap.get(cursor.item)!,
                 left,
                 right,
@@ -83,11 +82,19 @@ export function drawTree(state: AppState) {
             occurences.forEach((start) => {
                 const end = start + selectedText.length;
                 if (start >= 0) {
-                    highlightParagraphText(p, start, end, "green", 0.5);
+                    highlightParagraphText(state, p, start, end, "green", 0.5);
                 }
             });
         }
     }
+
+    if (!isRoot(state.focused)) {
+        ctx.font = `${spacings.titleFontWeight} ${spacings.titleFontSize}px ${spacings.font}`;
+
+        drawParagraph(state.focusedParagraph, "white");
+    }
+
+    ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
 
     for (let i = 0; i < state.paragraphs.length; i++) {
         const p = state.paragraphs[i];
@@ -175,6 +182,9 @@ function drawCursors(state: AppState) {
             const cursorHeight = paragraph.lineHeight;
             const cursorWidth = 1;
             ctx.fillStyle = colors.cursor;
+
+            setFont(state, cursor.item);
+
             ctx.fillRect(
                 paragraph.x + ctx.measureText(t).width - cursorWidth / 2,
                 paragraph.y +
@@ -188,6 +198,7 @@ function drawCursors(state: AppState) {
 }
 
 export function highlightParagraphText(
+    state: AppState,
     paragraph: Paragraph,
     from: number,
     to: number,
@@ -212,6 +223,8 @@ export function highlightParagraphText(
 
         const skipText = title.slice(lineStart, partOnLineStart);
         const selectRange = title.slice(partOnLineStart, partOnLineEnd);
+
+        setFont(state, paragraph.item);
         ctx.fillRect(
             paragraph.x + ctx.measureText(skipText).width,
             paragraph.y + i * paragraph.lineHeight - paragraph.lineHeight / 2,
@@ -243,3 +256,12 @@ function findAllOccurrencesOf(original: string, substring: string): number[] {
 
     return indices;
 }
+
+function setFont(state: AppState, item: Item) {
+    if (state.focused == item)
+        ctx.font = `${spacings.titleFontWeight} ${spacings.titleFontSize}px ${spacings.font}`;
+    else
+        ctx.font = `${spacings.fontWeight} ${spacings.fontSize}px ${spacings.font}`;
+}
+
+function assertNever(arg: never) {}
