@@ -24,6 +24,8 @@ export type AppState = {
     focused: Item;
     focusedParagraph: Paragraph;
 
+    itemPlaying?: Item;
+
     isItemAddedDuringRename: boolean;
 
     changeHistory: Edit[];
@@ -80,7 +82,7 @@ window.state = state;
 
 function onResize() {
     const width = window.innerWidth;
-    const height = window.innerHeight;
+    const height = window.innerHeight - spacings.footer;
     const scale = window.devicePixelRatio || 1;
     state.canvas.width = width;
     state.canvas.height = height;

@@ -1,10 +1,11 @@
-import { AppState } from "../index";
+import { AppState, buildParagraphs } from "../index";
 import { scrollToSelectedItem } from "../scroll";
 import {
     getItemAbove,
     getItemBelow,
     getItemToSelectAfterRemovingSelected,
 } from "../selection";
+import { getFolderContent } from "../utils/files";
 import {
     addItemAt,
     getIndexOf,
@@ -93,6 +94,10 @@ export function enterMode(state: AppState, mode: CursorState["mode"]) {
         });
 
     if (mode == "normal") {
+        forEachCursor(state, (c) => {
+            const renameFn = c.item.handle && (c.item.handle as any).move;
+            if (renameFn) renameFn.call(c.item.handle, c.item.title);
+        });
         if (state.isItemAddedDuringRename) {
             state.isItemAddedDuringRename = false;
         } else {
@@ -146,6 +151,7 @@ export function removeText(state: AppState, removeFrom: "left" | "right") {
             const title = cursor.item.title;
             cursor.item.title = title.slice(0, from) + title.slice(to);
 
+            // move other cursors on the same items
             forEachCursor(state, (c) => {
                 if (c.item == cursor.item && c.position > cursor.position) {
                     c.position -= to - from;
@@ -424,11 +430,30 @@ function moveSelectionLeft(state: AppState) {
     });
 }
 
-function moveSelectionRight(state: AppState) {
-    forEachCursor(state, (cursor) => {
-        const item = cursor.item;
-        if (!item.isOpen && item.children.length > 0) {
+async function openItem(state: AppState, item: Item) {
+    const { handle } = item;
+    if (
+        item.children.length == 0 &&
+        handle instanceof FileSystemDirectoryHandle
+    ) {
+        const children = await getFolderContent(handle);
+        if (children.length > 0) {
+            item.children = children;
+            children.forEach((c) => (c.parent = item));
             item.isOpen = true;
+            buildParagraphs();
+        }
+    } else if (item.children.length > 0) {
+        item.isOpen = true;
+    }
+}
+
+function moveSelectionRight(state: AppState) {
+    //BUG: this is almost definitelly a bug, since noone is waiting for the callback.
+    forEachCursor(state, async (cursor) => {
+        const item = cursor.item;
+        if (!item.isOpen) {
+            openItem(state, cursor.item);
         } else if (item.children.length > 0) {
             cursor.item = item.children[0];
         }

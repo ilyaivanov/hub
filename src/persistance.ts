@@ -15,6 +15,9 @@ function sarializeToFile(root: Item) {
         let line = "";
         const { item, level } = stack.pop()!;
 
+        // ignore files and folders during serialization for now
+        if (item.handle) continue;
+
         line += `${repeat(" ", level * 2)}${item.title.trimStart()}`;
 
         //add item specific words aka /yt:fdgdvc12 /v:board /closed

@@ -1,4 +1,4 @@
-import { green, grey } from "./swatches";
+import { green, grey, redVivid } from "./swatches";
 
 export const SHOULD_PERSIST_TO_LOCAL_STORAGE = true;
 export const spacings = {
@@ -19,6 +19,8 @@ export const spacings = {
     iconSize: 8,
     xStep: 25,
     textToIcon: 8,
+
+    footer: 48,
 };
 
 const swatches = grey;
@@ -26,6 +28,7 @@ export const dark = {
     bg: "#1a1a1a",
     lines: swatches["800"],
     icons: swatches["500"],
+    foldericons: redVivid["500"],
     text: swatches["100"],
     selectedRect: swatches["500"],
     selectedRectInsert: green["500"],
@@ -36,6 +39,7 @@ export const light: Theme = {
     bg: swatches["050"],
     lines: swatches["100"],
     icons: swatches["600"],
+    foldericons: redVivid["500"],
     text: swatches["800"],
     selectedRect: swatches["200"],
     selectedRectInsert: green["500"],

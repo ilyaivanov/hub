@@ -4,6 +4,9 @@ export type Item = {
     parent: Item;
     isOpen: boolean;
     view: "tree" | "board";
+    type: "item" | "folder" | "file";
+
+    handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
 };
 
 export function i(title: string, children: Item[] = []) {
@@ -13,6 +16,7 @@ export function i(title: string, children: Item[] = []) {
         parent: undefined!,
         isOpen: children.length > 0,
         view: "tree",
+        type: "item",
     };
     children.forEach((c) => (c.parent = res));
     return res;
@@ -25,8 +29,40 @@ export function board(title: string, children: Item[] = []) {
         parent: undefined!,
         isOpen: children.length > 0,
         view: "board",
+        type: "item",
     };
     children.forEach((c) => (c.parent = res));
+    return res;
+}
+
+export function folder(
+    title: string,
+    handle: FileSystemDirectoryHandle,
+    children: Item[] = []
+) {
+    const res: Item = {
+        title,
+        handle,
+        children,
+        parent: undefined!,
+        isOpen: children.length > 0,
+        view: "tree",
+        type: "folder",
+    };
+    children.forEach((c) => (c.parent = res));
+    return res;
+}
+
+export function file(title: string, handle: FileSystemFileHandle) {
+    const res: Item = {
+        title,
+        children: [],
+        parent: undefined!,
+        isOpen: false,
+        handle,
+        view: "tree",
+        type: "file",
+    };
     return res;
 }
 

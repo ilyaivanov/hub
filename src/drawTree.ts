@@ -102,7 +102,14 @@ export function drawTree(state: AppState) {
         drawParagraph(p, color);
 
         const iconX = p.x - spacings.hPadding / 2 + 3;
-        if (p.item.children.length > 0) {
+
+        if (p.item.handle instanceof FileSystemDirectoryHandle) {
+            ctx.fillStyle = colors.foldericons;
+            fillSquareAt(iconX, p.y, spacings.iconSize);
+        } else if (p.item.handle instanceof FileSystemFileHandle) {
+            ctx.strokeStyle = colors.foldericons;
+            outlineSquareAt(iconX, p.y, spacings.iconSize);
+        } else if (p.item.children.length > 0) {
             ctx.fillStyle = colors.icons;
             fillSquareAt(iconX, p.y, spacings.iconSize);
         } else {

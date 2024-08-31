@@ -19,7 +19,10 @@ import { showMessage } from "./toasts";
 import { redoLastChange, undoLastChange } from "./cursor/edit";
 import { loadFromFile, saveToFile } from "./persistance";
 import { scrollToSelectedItem } from "./scroll";
-import { isRoot } from "./utils/tree";
+import { addItemAt, folder } from "./utils/tree";
+import { playItem, togglePlay } from "./player/player";
+import { getFolderContent } from "./utils/files";
+import { getItemAbove, getItemBelow } from "./selection";
 
 type Handler = {
     code: string;
@@ -88,7 +91,7 @@ const normalShortcuts: Handler[] = [
     { code: "KeyI", fn: (s) => enterMode(s, "insert") },
 
     { code: "Backspace", fn: (s) => removeText(s, "left") },
-    { code: "KeyX", fn: (s) => removeText(s, "right") },
+    { code: "KeyX", fn: (s) => removeText(s, "right"), meta: true },
 
     { code: "Escape", fn: cancelSelection },
     { code: "KeyU", fn: redoLastChange, shift: true },
@@ -97,8 +100,10 @@ const normalShortcuts: Handler[] = [
     { code: "Digit0", fn: (s) => moveCursor(s, "jump-item-start") },
     { code: "Digit4", fn: (s) => moveCursor(s, "jump-item-end"), shift: true },
 
-    { code: "KeyC", fn: copySelectedItem },
+    { code: "KeyC", fn: copySelectedItem, meta: true },
     { code: "KeyV", fn: pasteSelectedItem, meta: true },
+
+    { code: "KeyO", fn: addFolder, meta: true, noDef: true },
 
     {
         code: "KeyF",
@@ -125,7 +130,28 @@ const normalShortcuts: Handler[] = [
     { code: "Tab", fn: (s) => moveItems(s, "right"), noDef: true },
 
     { code: "Enter", fn: breakItemIntoTwo },
+
+    { code: "Space", fn: playSelected },
+    { code: "KeyZ", fn: playPrev },
+    { code: "KeyX", fn: playPause },
+    { code: "KeyC", fn: playNext },
 ];
+
+function playPrev(state: AppState) {
+    if (state.itemPlaying) {
+        let prev = getItemAbove(state.itemPlaying);
+        if (prev && prev.handle) playItem(state, prev);
+    }
+}
+function playPause(state: AppState) {
+    togglePlay();
+}
+function playNext(state: AppState) {
+    if (state.itemPlaying) {
+        let prev = getItemBelow(state, state.itemPlaying);
+        if (prev && prev.handle) playItem(state, prev);
+    }
+}
 
 const insertShortcuts: Handler[] = [
     { code: "Backspace", fn: (s) => removeText(s, "left") },
@@ -170,6 +196,7 @@ async function loadRootFromFile(state: AppState) {
     const res = await loadFromFile();
     if (res) {
         state.root = res;
+        state.focused = res;
         state.cursorState.cursors = [createCursor(state.root.children[0])];
         buildParagraphs();
         scrollToSelectedItem(state);
@@ -196,4 +223,24 @@ async function copySelectedItem(state: AppState) {
     const textToCopy = getPrimaryCursor(state).item.title;
     await navigator.clipboard.writeText(textToCopy);
     showMessage(textToCopy);
+}
+
+async function addFolder(state: AppState) {
+    const openFileFn: any = window.showDirectoryPicker;
+    if (openFileFn) {
+        try {
+            const fileHandle = await openFileFn();
+            const children = await getFolderContent(fileHandle);
+            const f = folder(fileHandle.name, fileHandle, children);
+            addItemAt(state.focused, f, state.focused.children.length);
+        } catch (e) {
+            if (!(e instanceof DOMException && e.name == "AbortError")) {
+                throw e;
+            }
+        }
+    }
+}
+
+async function playSelected(state: AppState) {
+    playItem(state, getPrimaryCursor(state).item);
 }
