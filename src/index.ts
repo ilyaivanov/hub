@@ -15,6 +15,7 @@ import { clampOffset, scrollToSelectedItem } from "./scroll";
 import { drawTree } from "./drawTree";
 import { CursorState, getInitialCursorState } from "./cursor/cursor";
 import { Edit } from "./cursor/edit";
+import { onPlayerResize } from "./player/player";
 
 document.body.style.backgroundColor = colors.bg;
 document.body.appendChild(canvas);
@@ -48,6 +49,12 @@ export type AppState = {
     pageHeight: number;
     panelWidth: number;
     scrollOffset: number;
+
+    player: {
+        blur: number;
+        brightness: number;
+        videoView: "cover" | "contain";
+    };
 };
 
 const initialRoot =
@@ -74,6 +81,12 @@ const state: AppState = {
     pageHeight: 0,
     panelWidth: 0,
     scrollOffset: 0,
+
+    player: {
+        blur: 0,
+        brightness: 0,
+        videoView: "contain",
+    },
 };
 // selectItem(state.root.children[0]);
 
@@ -95,8 +108,11 @@ function onResize() {
     ctx.scale(scale, scale);
 
     state.panelWidth = Math.min(state.canvas.width, spacings.maxWidth);
+
+    onPlayerResize(state);
 }
 onResize();
+
 window.addEventListener("resize", () => {
     onResize();
     buildParagraphs();

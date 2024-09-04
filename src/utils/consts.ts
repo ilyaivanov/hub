@@ -26,6 +26,7 @@ export const spacings = {
 const swatches = grey;
 export const dark = {
     bg: "#1a1a1a",
+    // bg: "black",
     lines: swatches["800"],
     icons: swatches["500"],
     foldericons: redVivid["500"],

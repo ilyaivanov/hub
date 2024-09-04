@@ -4,34 +4,43 @@ export type Item = {
     parent: Item;
     isOpen: boolean;
     view: "tree" | "board";
-    type: "item" | "folder" | "file";
+    type:
+        | "item"
+        | "folder"
+        | "file"
+        | "yt-search"
+        | "yt-channel"
+        | "yt-playlist"
+        | "yt-video";
 
+    itemId?: string;
     handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
 };
 
 export function i(title: string, children: Item[] = []) {
+    return createItem("item", title, children);
+}
+
+export function createItem(
+    type: Item["type"],
+    title: string,
+    children: Item[] = []
+) {
     const res: Item = {
         title,
         children,
+        type,
         parent: undefined!,
         isOpen: children.length > 0,
         view: "tree",
-        type: "item",
     };
     children.forEach((c) => (c.parent = res));
     return res;
 }
 
-export function board(title: string, children: Item[] = []) {
-    const res: Item = {
-        title,
-        children,
-        parent: undefined!,
-        isOpen: children.length > 0,
-        view: "board",
-        type: "item",
-    };
-    children.forEach((c) => (c.parent = res));
+export function ytVideo(title: string, videoId: string) {
+    const res = createItem("yt-video", title);
+    res.itemId = videoId;
     return res;
 }
 
@@ -40,29 +49,14 @@ export function folder(
     handle: FileSystemDirectoryHandle,
     children: Item[] = []
 ) {
-    const res: Item = {
-        title,
-        handle,
-        children,
-        parent: undefined!,
-        isOpen: children.length > 0,
-        view: "tree",
-        type: "folder",
-    };
-    children.forEach((c) => (c.parent = res));
+    const res = createItem("folder", title, children);
+    res.handle = handle;
     return res;
 }
 
 export function file(title: string, handle: FileSystemFileHandle) {
-    const res: Item = {
-        title,
-        children: [],
-        parent: undefined!,
-        isOpen: false,
-        handle,
-        view: "tree",
-        type: "file",
-    };
+    const res = createItem("file", title);
+    res.handle = handle;
     return res;
 }
 

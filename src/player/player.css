@@ -65,3 +65,22 @@
 
     position: relative;
 }
+
+#youtubeIframe {
+    position: absolute;
+    right: 20px;
+    bottom: 68px;
+    width: 400px;
+    height: 150px;
+    opacity: 1;
+}
+
+.local-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transition:
+        filter 200ms ease-in-out,
+        opacity 200ms ease-in-out;
+    /* other props set in TS code */
+}

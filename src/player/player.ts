@@ -3,11 +3,28 @@ import { spacings } from "../utils/consts";
 import { div, span } from "../utils/html";
 import { mapNumber } from "../utils/math";
 import { Item } from "../utils/tree";
-import { pause, play, playNext, volumeDisabled, volumeHigh } from "./icons";
+import {
+    narrow,
+    pauseIcon,
+    playIcon,
+    playNext,
+    volumeDisabled,
+    volumeHigh,
+    wide,
+} from "./icons";
 
 import "./player.css";
+import {
+    getDuration,
+    getPlayerProgressState,
+    pause,
+    play,
+    resume,
+    youtubeIframeId,
+} from "./youtubePlayer";
 
 const videoElem = document.createElement("video");
+videoElem.classList.add("local-video");
 
 let currentTimeElem: HTMLElement;
 let maxTimeElem: HTMLElement;
@@ -19,8 +36,8 @@ const footer = div({
     style: { height: spacings.footer + "px" },
     children: [
         playNext.cloneNode(true),
-        play,
-        pause,
+        playIcon,
+        pauseIcon,
         playNext.cloneNode(true),
 
         span({
@@ -46,22 +63,24 @@ const footer = div({
             children: [div({ class: "blob" })],
         }),
 
+        wide,
+        narrow,
+
         span({
             class: "player-title",
             ref: (ref) => (titleElem = ref),
         }),
+        div({ id: youtubeIframeId }),
     ],
 });
 
 document.body.appendChild(videoElem);
 document.body.appendChild(footer);
 
-pause.style.display = "none";
+pauseIcon.style.display = "none";
+narrow.style.display = "none";
 
-let maxTime = 0;
-let time = 0;
-
-function timeTick() {
+function timeTick(time: number, maxTime: number) {
     if (maxTime >= 60 * 60) {
         currentTimeElem.textContent = formatTimeWithHour(time);
         maxTimeElem.textContent = formatTimeWithHour(maxTime);
@@ -73,47 +92,98 @@ function timeTick() {
     timeBlob.style.left = mapNumber(0, maxTime, -6, 294, time) + "px";
 }
 
-videoElem.addEventListener("durationchange", (e) => {
-    maxTime = videoElem.duration;
-    timeTick();
+export function updateVideoViewButton(state: AppState) {
+    if (state.player.videoView == "contain") {
+        narrow.style.display = "none";
+        wide.style.removeProperty("display");
+    } else {
+        wide.style.display = "none";
+        narrow.style.removeProperty("display");
+    }
+    onPlayerResize(state);
+}
+
+videoElem.addEventListener("durationchange", () => {
+    timeTick(videoElem.currentTime, videoElem.duration);
 });
 
-videoElem.addEventListener("timeupdate", (e) => {
-    time = videoElem.currentTime;
-    timeTick();
+videoElem.addEventListener("timeupdate", () => {
+    timeTick(videoElem.currentTime, videoElem.duration);
 });
+
+document.addEventListener("video-progress", () => {
+    const state = getPlayerProgressState();
+    timeTick(state.currentTime, state.duration);
+});
+
+export function onPlayerResize(state: AppState) {
+    videoElem.style.width = state.canvas.width + "px";
+
+    // difference between contain and cover to be implemented
+    // const videoWidth = videoElem.clientWidth;
+    // const videoHeight = videoElem.clientHeight;
+    // const aspectRatio = videoWidth / videoHeight;
+
+    // console.log(videoWidth, videoHeight);
+    // if (state.player.videoView == "contain") {
+    //     // videoElem.style.
+    // } else {
+    //     videoElem.style.width = state.canvas.width + "px";
+    // }
+}
+
+export function updatePlayerBrightness(state: AppState) {
+    // videoElem.style.filter = `blur(${state.player.blur}px) brightness(${state.player.brightness}%)`;
+    videoElem.style.opacity = (state.player.brightness / 100).toFixed(2) + "";
+}
 
 let isPlaying = false;
 export async function playItem(state: AppState, item: Item) {
-    if (item.handle && item.handle instanceof FileSystemFileHandle) {
-        state.itemPlaying = item;
+    if (item.type == "yt-video" && item.itemId) {
+        play(item.itemId);
+    } else if (item.handle && item.handle instanceof FileSystemFileHandle) {
         const file = await item.handle.getFile();
         videoElem.src = URL.createObjectURL(file);
-
-        isPlaying = true;
-        titleElem.innerText = item.title;
-        updatePlayButtons();
 
         // if (file.type.startsWith("audio/"))
         // if (file.type.startsWith("video/"))
     } else {
+        return;
+    }
+
+    state.itemPlaying = item;
+    isPlaying = true;
+    titleElem.innerText = item.title;
+    if (item.type == "yt-video") updateButtons();
+    else updatePlayButtons(state);
+}
+
+export function togglePlay(state: AppState) {
+    isPlaying = !isPlaying;
+    updatePlayButtons(state);
+}
+
+export function updatePlayButtons(state: AppState) {
+    if (state.itemPlaying) {
+        if (isPlaying) {
+            if (state.itemPlaying.type == "yt-video") resume();
+            else videoElem.play();
+        } else {
+            if (state.itemPlaying.type == "yt-video") pause();
+            else videoElem.pause();
+        }
+
+        updateButtons();
     }
 }
 
-export function togglePlay() {
-    isPlaying = !isPlaying;
-    updatePlayButtons();
-}
-
-export function updatePlayButtons() {
+function updateButtons() {
     if (isPlaying) {
-        videoElem.play();
-        play.style.display = "none";
-        pause.style.removeProperty("display");
+        playIcon.style.display = "none";
+        pauseIcon.style.removeProperty("display");
     } else {
-        videoElem.pause();
-        pause.style.display = "none";
-        play.style.removeProperty("display");
+        pauseIcon.style.display = "none";
+        playIcon.style.removeProperty("display");
     }
 }
 

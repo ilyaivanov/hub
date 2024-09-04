@@ -2,6 +2,7 @@
 import { forEachCursor, getPrimaryCursor } from "./cursor/cursor";
 import { AppState } from "./index";
 import type { Paragraph } from "./paragraph";
+import { playIconSize, playPath } from "./player/icons";
 import { colors, spacings } from "./utils/consts";
 import { ctx, fillSquareAt, outlineSquareAt } from "./utils/drawing";
 import { lerp } from "./utils/math";
@@ -103,7 +104,19 @@ export function drawTree(state: AppState) {
 
         const iconX = p.x - spacings.hPadding / 2 + 3;
 
-        if (p.item.handle instanceof FileSystemDirectoryHandle) {
+        if (p.item.type == "yt-video") {
+            var path = new Path2D(playPath);
+            ctx.save();
+            const scale = 50;
+            const xOffset = playIconSize.x / scale / 2;
+            const YOffset = playIconSize.y / scale / 2;
+            ctx.translate(iconX - xOffset, p.y - YOffset);
+
+            ctx.scale(1 / scale, 1 / scale);
+            ctx.fillStyle = colors.foldericons;
+            ctx.fill(path);
+            ctx.restore();
+        } else if (p.item.handle instanceof FileSystemDirectoryHandle) {
             ctx.fillStyle = colors.foldericons;
             fillSquareAt(iconX, p.y, spacings.iconSize);
         } else if (p.item.handle instanceof FileSystemFileHandle) {

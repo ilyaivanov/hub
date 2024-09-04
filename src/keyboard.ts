@@ -20,7 +20,12 @@ import { redoLastChange, undoLastChange } from "./cursor/edit";
 import { loadFromFile, saveToFile } from "./persistance";
 import { scrollToSelectedItem } from "./scroll";
 import { addItemAt, folder } from "./utils/tree";
-import { playItem, togglePlay } from "./player/player";
+import {
+    playItem,
+    togglePlay,
+    updatePlayerBrightness,
+    updateVideoViewButton,
+} from "./player/player";
 import { getFolderContent } from "./utils/files";
 import { getItemAbove, getItemBelow } from "./selection";
 
@@ -135,22 +140,30 @@ const normalShortcuts: Handler[] = [
     { code: "KeyZ", fn: playPrev },
     { code: "KeyX", fn: playPause },
     { code: "KeyC", fn: playNext },
+
+    { code: "KeyV", fn: toggleVideoView },
 ];
 
 function playPrev(state: AppState) {
     if (state.itemPlaying) {
         let prev = getItemAbove(state.itemPlaying);
-        if (prev && prev.handle) playItem(state, prev);
+        if (prev) playItem(state, prev);
     }
 }
 function playPause(state: AppState) {
-    togglePlay();
+    togglePlay(state);
 }
 function playNext(state: AppState) {
     if (state.itemPlaying) {
         let prev = getItemBelow(state, state.itemPlaying);
-        if (prev && prev.handle) playItem(state, prev);
+        if (prev) playItem(state, prev);
     }
+}
+
+function toggleVideoView(state: AppState) {
+    state.player.videoView =
+        state.player.videoView == "contain" ? "cover" : "contain";
+    updateVideoViewButton(state);
 }
 
 const insertShortcuts: Handler[] = [
@@ -163,13 +176,22 @@ const insertShortcuts: Handler[] = [
 ];
 
 export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {
-    for (let i = 0; i < normalShortcuts.length; i++) {
-        const action = normalShortcuts[i];
-        if (isShortcutMatches(action, e)) {
-            if (action.noDef) e.preventDefault();
+    const player = state.player;
+    if (e.metaKey && e.code.startsWith("Digit")) {
+        const digit = +e.code.substring("Digit".length);
+        if (player.brightness != 100 && digit == 0) player.brightness = 100;
+        else player.brightness = digit * 10;
 
-            await action.fn(state);
-            return true;
+        updatePlayerBrightness(state);
+    } else {
+        for (let i = 0; i < normalShortcuts.length; i++) {
+            const action = normalShortcuts[i];
+            if (isShortcutMatches(action, e)) {
+                if (action.noDef) e.preventDefault();
+
+                await action.fn(state);
+                return true;
+            }
         }
     }
     return false;
