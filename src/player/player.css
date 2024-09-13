@@ -67,11 +67,12 @@
 }
 
 #youtubeIframe {
-    position: absolute;
-    right: 20px;
-    bottom: 68px;
-    width: 400px;
-    height: 150px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(100vh - 49px);
+    /* bottom: 48px; */
     opacity: 1;
 }
 

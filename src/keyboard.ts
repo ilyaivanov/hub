@@ -8,6 +8,7 @@ import {
     expandCursor,
     getPrimaryCursor,
     insertText,
+    loadMoreItems,
     moveCursor,
     removeSelectedItems,
     removeText,
@@ -19,7 +20,13 @@ import { showMessage } from "./toasts";
 import { redoLastChange, undoLastChange } from "./cursor/edit";
 import { loadFromFile, saveToFile } from "./persistance";
 import { scrollToSelectedItem } from "./scroll";
-import { addItemAt, folder } from "./utils/tree";
+import {
+    addItemAt,
+    createItem,
+    createYtSearchItem,
+    folder,
+    getIndexOf,
+} from "./utils/tree";
 import {
     playItem,
     togglePlay,
@@ -41,6 +48,9 @@ type Handler = {
 
 // order matters
 const normalShortcuts: Handler[] = [
+    { code: "KeyY", fn: addYoutubeSearchItem, meta: true, shift: true },
+    { code: "KeyY", fn: showYoutubeChannel, alt: true },
+
     { code: "KeyF", fn: (s) => moveCursor(s, "jump-char-right") },
     { code: "KeyA", fn: (s) => moveCursor(s, "jump-char-left") },
 
@@ -94,6 +104,8 @@ const normalShortcuts: Handler[] = [
     { code: "KeyR", fn: replaceTitle },
 
     { code: "KeyI", fn: (s) => enterMode(s, "insert") },
+
+    { code: "KeyI", fn: (s) => document.body.requestFullscreen(), meta: true },
 
     { code: "Backspace", fn: (s) => removeText(s, "left") },
     { code: "KeyX", fn: (s) => removeText(s, "right"), meta: true },
@@ -177,7 +189,7 @@ const insertShortcuts: Handler[] = [
 
 export async function handleNormalModeKey(state: AppState, e: KeyboardEvent) {
     const player = state.player;
-    if (e.metaKey && e.code.startsWith("Digit")) {
+    if (e.altKey && e.code.startsWith("Digit")) {
         const digit = +e.code.substring("Digit".length);
         if (player.brightness != 100 && digit == 0) player.brightness = 100;
         else player.brightness = digit * 10;
@@ -214,6 +226,14 @@ export async function handleInsertModeKey(state: AppState, e: KeyboardEvent) {
     return false;
 }
 
+function addYoutubeSearchItem(state: AppState) {
+    const item = getPrimaryCursor(state).item;
+    const search = createYtSearchItem();
+    addItemAt(item.parent, search, getIndexOf(item));
+    state.cursorState.cursors = [createCursor(search)];
+    enterMode(state, "insert");
+}
+
 async function loadRootFromFile(state: AppState) {
     const res = await loadFromFile();
     if (res) {
@@ -247,6 +267,17 @@ async function copySelectedItem(state: AppState) {
     showMessage(textToCopy);
 }
 
+function showYoutubeChannel(state: AppState) {
+    const item = getPrimaryCursor(state).item;
+    if (item.ytChannelId && item.ytChannelTitle) {
+        const channel = createItem("yt-channel", item.ytChannelTitle);
+        channel.itemId = item.ytChannelId;
+        addItemAt(item.parent, channel, getIndexOf(item));
+
+        state.cursorState.cursors = [createCursor(channel)];
+    }
+}
+
 async function addFolder(state: AppState) {
     const openFileFn: any = window.showDirectoryPicker;
     if (openFileFn) {
@@ -264,5 +295,7 @@ async function addFolder(state: AppState) {
 }
 
 async function playSelected(state: AppState) {
-    playItem(state, getPrimaryCursor(state).item);
+    const item = getPrimaryCursor(state).item;
+    if (item.type == "yt-load-more") loadMoreItems(state, item);
+    else playItem(state, item);
 }

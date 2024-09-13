@@ -134,14 +134,27 @@ export function onPlayerResize(state: AppState) {
 
 export function updatePlayerBrightness(state: AppState) {
     // videoElem.style.filter = `blur(${state.player.blur}px) brightness(${state.player.brightness}%)`;
-    videoElem.style.opacity = (state.player.brightness / 100).toFixed(2) + "";
+
+    const opacity = (state.player.brightness / 100).toFixed(2) + "";
+    if (state.itemPlaying?.type == "yt-video")
+        document.getElementById(youtubeIframeId)!.style.opacity = opacity;
+    else videoElem.style.opacity = opacity;
 }
 
 let isPlaying = false;
 export async function playItem(state: AppState, item: Item) {
     if (item.type == "yt-video" && item.itemId) {
+        if (state.itemPlaying?.handle) {
+            videoElem.pause();
+            videoElem.style.opacity = "0";
+        }
         play(item.itemId);
     } else if (item.handle && item.handle instanceof FileSystemFileHandle) {
+        if (state.itemPlaying?.type == "yt-video") {
+            pause();
+            document.getElementById(youtubeIframeId)!.style.opacity = "0";
+        }
+
         const file = await item.handle.getFile();
         videoElem.src = URL.createObjectURL(file);
 
@@ -156,6 +169,7 @@ export async function playItem(state: AppState, item: Item) {
     titleElem.innerText = item.title;
     if (item.type == "yt-video") updateButtons();
     else updatePlayButtons(state);
+    updatePlayerBrightness(state);
 }
 
 export function togglePlay(state: AppState) {

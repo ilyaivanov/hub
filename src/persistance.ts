@@ -8,6 +8,93 @@ const types = [
     { description: "Viztly Text File", accept: { "text/*": [".txt"] } },
 ];
 
+function formatItemAttributes(item: Item): string {
+    const atrs: string[] = [];
+
+    if (item.children.length > 0 && !item.isOpen) atrs.push("closed");
+
+    if (item.type == "yt-channel") atrs.push("yt-ch:" + item.itemId);
+    else if (item.type == "yt-playlist") atrs.push("yt-pl:" + item.itemId);
+    else if (item.type == "yt-video") {
+        atrs.push("yt-vid:" + item.itemId);
+
+        if (item.ytChannelTitle && item.ytChannelId) {
+            atrs.push("yt-vid-ch:" + item.ytChannelTitle.replace(" ", "№"));
+            atrs.push("yt-vid-ch-id:" + item.ytChannelId);
+        }
+    } else if (item.type == "yt-search") atrs.push("yt-search");
+    else if (item.type == "yt-load-more") {
+        atrs.push("yt-load");
+        atrs.push("yt-loaded:" + item.loadMoreResultsLoaded);
+        atrs.push("yt-total:" + item.loadMoreResultsTotal);
+        atrs.push("yt-page:" + item.loadMoreResultsPerPage);
+        atrs.push("yt-token:" + item.loadMorePageToken);
+        atrs.push("yt-load-type:" + item.loadMoreWhat);
+    }
+
+    if (atrs.length > 0) return atrs.map((atr) => "/" + atr).join(" ");
+    return "";
+}
+
+const map: Record<string, (item: Item, value: string | undefined) => void> = {
+    "/closed": (item) => (item.isOpen = false),
+    "/yt-search": (item) => (item.type = "yt-search"),
+    "/yt-ch": (item, id) => {
+        item.type = "yt-channel";
+        item.itemId = id;
+    },
+    "/yt-pl": (item, id) => {
+        item.type = "yt-playlist";
+        item.itemId = id;
+    },
+    "/yt-vid": (item, id) => {
+        item.type = "yt-video";
+        item.itemId = id;
+    },
+
+    "/yt-vid-ch": (item, title) => (item.ytChannelTitle = title),
+    "/yt-vid-ch-id": (item, id) => (item.ytChannelId = id),
+
+    //load more flags
+    "/yt-load": (item) => (item.type = "yt-load-more"),
+    "/yt-loaded": (item, loaded) =>
+        (item.loadMoreResultsLoaded = loaded ? +loaded : 0),
+    "/yt-page": (item, page) =>
+        (item.loadMoreResultsPerPage = page ? +page : 0),
+
+    "/yt-total": (item, total) =>
+        (item.loadMoreResultsTotal = total ? +total : 0),
+    "/yt-token": (item, token) => (item.loadMorePageToken = token),
+    "/yt-load-type": (item, type) =>
+        (item.loadMoreWhat = type as Item["loadMoreWhat"]),
+};
+
+function parseLine(line: string): { level: number; item: Item } {
+    let level = 0;
+    while (line[level] == " ") level++;
+
+    const item = i("");
+
+    //settings this to undefined, because I want to know if Item is explicitly /closed in a file
+    item.isOpen = undefined;
+
+    let words = line
+        .trimStart()
+        .split(" ")
+        .filter((word) => {
+            const [key, value] = word.split(":");
+            const action = map[key];
+            if (action) {
+                action(item, value);
+                return false;
+            }
+            return true;
+        });
+
+    item.title = words.join(" ");
+    return { level, item };
+}
+
 function sarializeToFile(root: Item) {
     const stack = root.children.map((item) => ({ item, level: 0 })).reverse();
     const lines: string[] = [];
@@ -15,19 +102,13 @@ function sarializeToFile(root: Item) {
         let line = "";
         const { item, level } = stack.pop()!;
 
-        // ignore files and folders during serialization for now
+        // ignore files and folders and their children during serialization for now
         if (item.handle) continue;
 
         line += `${repeat(" ", level * 2)}${item.title.trimStart()}`;
 
-        //add item specific words aka /yt:fdgdvc12 /v:board /closed
-        const atrs: string[] = [];
-
-        if (item.view == "board") atrs.push("/board");
-
-        if (item.children.length > 0 && !item.isOpen) atrs.push("/closed");
-
-        if (atrs.length > 0) line += " " + atrs.join(" ");
+        const attributesFormatted = formatItemAttributes(item);
+        if (attributesFormatted.length > 0) line += " " + attributesFormatted;
 
         lines.push(line);
         if (item.children.length > 0)
@@ -43,41 +124,30 @@ function sarializeToFile(root: Item) {
 export function parseFileText(text: string): Item {
     const lines = text.split("\n");
     const root = i("Root");
-    const stack: { item: Item; level: number; isClosed: boolean }[] = [
-        { item: root, level: -1, isClosed: false },
-    ];
+    const stack: { item: Item; level: number }[] = [{ item: root, level: -1 }];
+
+    function removeFromStackUntilLevel(level: number) {
+        while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+            const i = stack.pop();
+
+            if (i && i.item.children.length > 0 && i.item.isOpen !== false)
+                i.item.isOpen = true;
+        }
+    }
 
     for (let j = 0; j < lines.length; j++) {
         const line = lines[j];
 
-        let itemLevel = 0;
-        let itemText = line.trimStart();
-        let isClosed = itemText.endsWith(" /closed");
+        const { level, item } = parseLine(line);
 
-        if (isClosed)
-            itemText = itemText.slice(0, itemText.length - " /closed".length);
-
-        const item = i(itemText);
-
-        while (line[itemLevel] == " ") itemLevel++;
-
-        while (stack[stack.length - 1].level >= itemLevel) {
-            const i = stack.pop();
-            if (i && i.item.children.length > 0 && i.isClosed)
-                i.item.isOpen = false;
-        }
+        removeFromStackUntilLevel(level);
 
         insertAsLastChild(stack[stack.length - 1].item, item);
-        stack[stack.length - 1].item.isOpen = true;
 
-        stack.push({ item, level: itemLevel, isClosed });
+        stack.push({ item, level });
     }
 
-    while (stack.length > 0) {
-        const i = stack.pop();
-        if (i && i.item.children.length > 0 && i.isClosed)
-            i.item.isOpen = false;
-    }
+    removeFromStackUntilLevel(-1);
 
     return root;
 }
@@ -134,6 +204,28 @@ export function loadItemsFromLocalStorage(): Item | undefined {
                 stack.push(child);
             }
         }
+
+        // if (root.children[0].title == "sample youtube") root.children.shift();
+
+        // addItemAt(
+        //     root,
+        //     createItem("item", "sample youtube", [
+        //         ytVideo("Guitar video", "FujgXKf7yj4"),
+        //         ytChannel("VSauce", "UC6nSFpj9HTCZ5t-N3Rm3-HA"),
+        //         ytChannel("Folding Ideas", "UCyNtlmLB73-7gtlBz00XOQQ"),
+        //         ytChannel("hbomberguy", "UClt01z1wHHT7c5lKcU8pxRQ"),
+        //         ytChannel("Палає", "UCCnxINydEcDs-74iVMRU-Qw"),
+        //         ytPlaylist("DOT. by VSauce", "PL8B1DDE384770FD97"),
+        //         ytChannel("Radio Intense", "UCCWHSZ6VQPr7cnJAF8JbDzA"),
+        //         ytPlaylist(
+        //             "Xenia (Radio Intense)",
+        //             "PLJJhuE0qsJfQlj6uw1vJCgHbPilEgPETY"
+        //         ),
+        //         ytVideo("Andy McKee - Into the Ocean", "Cvar4ZsqsEo"),
+        //     ]),
+        //     0
+        // );
+
         return root;
     } else return undefined;
 }

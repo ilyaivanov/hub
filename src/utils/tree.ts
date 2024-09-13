@@ -1,8 +1,12 @@
+import { PageInfo } from "../youtubeApi";
+
 export type Item = {
     title: string;
     children: Item[];
     parent: Item;
-    isOpen: boolean;
+
+    //undefined is used only during deserialization to distinguish setting isOpen to false or not setting isOpen at all
+    isOpen: boolean | undefined;
     view: "tree" | "board";
     type:
         | "item"
@@ -10,10 +14,21 @@ export type Item = {
         | "file"
         | "yt-search"
         | "yt-channel"
+        | "yt-load-more"
         | "yt-playlist"
         | "yt-video";
 
     itemId?: string;
+
+    loadMoreWhat?: "channel" | "playlist" | "search";
+    loadMorePageToken?: string;
+    loadMoreResultsTotal?: number;
+    loadMoreResultsLoaded?: number;
+    loadMoreResultsPerPage?: number;
+
+    ytChannelId?: string;
+    ytChannelTitle?: string;
+
     handle?: FileSystemDirectoryHandle | FileSystemFileHandle;
 };
 
@@ -38,9 +53,55 @@ export function createItem(
     return res;
 }
 
+export function getLoadMoreTypeForItem(item: Item): Item["loadMoreWhat"] {
+    if (item.type == "yt-playlist") return "playlist";
+    else if (item.type == "yt-channel") return "channel";
+    else if (item.type == "yt-search") return "search";
+    else throw new Error("Unknown laod more type for " + item.type);
+}
+
+export function createLoadMoreItem(
+    itemId: string,
+    type: Item["loadMoreWhat"],
+    pageInfo: PageInfo,
+    alreadyLoaded: number = 0
+) {
+    const item = createItem("yt-load-more", "");
+    item.itemId = itemId;
+
+    item.loadMoreWhat = type;
+    item.loadMorePageToken = pageInfo.nextPageToken;
+
+    item.loadMoreResultsLoaded = alreadyLoaded + pageInfo.resultsPerPage;
+    item.loadMoreResultsPerPage = pageInfo.resultsPerPage;
+    item.loadMoreResultsTotal = pageInfo.totalResults;
+
+    const remainingitems = Math.min(
+        item.loadMoreResultsPerPage,
+        item.loadMoreResultsTotal - item.loadMoreResultsLoaded
+    );
+    item.title = `Press space to load ${remainingitems} more (${item.loadMoreResultsLoaded} of ${item.loadMoreResultsTotal} loaded)`;
+    return item;
+}
+
+export function createYtSearchItem() {
+    const res = createItem("yt-search", "");
+    return res;
+}
+
 export function ytVideo(title: string, videoId: string) {
     const res = createItem("yt-video", title);
     res.itemId = videoId;
+    return res;
+}
+export function ytPlaylist(title: string, playlistId: string) {
+    const res = createItem("yt-playlist", title);
+    res.itemId = playlistId;
+    return res;
+}
+export function ytChannel(title: string, channelId: string) {
+    const res = createItem("yt-channel", title);
+    res.itemId = channelId;
     return res;
 }
 
@@ -89,6 +150,16 @@ export function addItemAt(parent: Item, child: Item, index: number) {
     parent.children.splice(index, 0, child);
     child.parent = parent;
     parent.isOpen = true;
+}
+export function addItemsAt(parent: Item, children: Item[], index: number) {
+    parent.children.splice(index, 0, ...children);
+    children.forEach((child) => (child.parent = parent));
+    parent.isOpen = true;
+}
+
+export function replaceChildren(parent: Item, children: Item[]) {
+    parent.children = [];
+    addItemsAt(parent, children, 0);
 }
 
 export function insertAsLastChild(parent: Item, item: Item) {

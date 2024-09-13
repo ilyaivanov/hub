@@ -73,7 +73,14 @@ global.onYouTubeIframeAPIReady = () => {
         height: "100%",
         width: "100%",
         videoId: videoRequested,
-        playerVars: { autoplay: 1 /*, 'controls': 0 */ },
+        playerVars: {
+            autoplay: 1,
+            controls: 0,
+            rel: 0,
+            fs: 0,
+            disablekb: 1,
+            enablejsapi: 1,
+        },
         events: {
             onReady: () => {
                 progressInterval = setInterval(onTick, 200);

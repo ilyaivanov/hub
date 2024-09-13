@@ -8,12 +8,23 @@ import {
 import { getFolderContent } from "../utils/files";
 import {
     addItemAt,
+    addItemsAt,
+    createLoadMoreItem,
     getIndexOf,
+    getLoadMoreTypeForItem,
     i,
     isParentOrSame,
     isRoot,
     Item,
+    removeItem,
+    replaceChildren,
 } from "../utils/tree";
+import {
+    findPlaylistVideos,
+    getChannelInfo,
+    MyResponse,
+    searchYoutube,
+} from "../youtubeApi";
 import { AdditionInfo, editTree, RenameInfo } from "./edit";
 
 export type Cursor = {
@@ -103,6 +114,16 @@ export function enterMode(state: AppState, mode: CursorState["mode"]) {
         } else {
             triggerRenameAction(state);
         }
+
+        forEachCursor(state, (c) => {
+            if (
+                c.item.type == "yt-search" &&
+                c.item.title.length > 0 &&
+                c.item.title != c.titleBeforeEnteringInsertMode
+            ) {
+                performSearch(state, c.item);
+            }
+        });
     }
 }
 
@@ -432,19 +453,107 @@ function moveSelectionLeft(state: AppState) {
 
 async function openItem(state: AppState, item: Item) {
     const { handle } = item;
-    if (
-        item.children.length == 0 &&
-        handle instanceof FileSystemDirectoryHandle
-    ) {
-        const children = await getFolderContent(handle);
+    const isEmpty = item.children.length == 0;
+    if (isEmpty) {
+        if (handle instanceof FileSystemDirectoryHandle) {
+            const children = await getFolderContent(handle);
+            if (children.length > 0) {
+                item.children = children;
+                children.forEach((c) => (c.parent = item));
+                item.isOpen = true;
+                buildParagraphs();
+            }
+        } else if (item.type == "yt-playlist" && item.itemId) {
+            const res = await findPlaylistVideos(item.itemId);
+
+            const children = res.items;
+            if (children.length > 0) {
+                if (res.pageInfo.nextPageToken) {
+                    const loadMore = createLoadMoreItem(
+                        item.itemId,
+                        "playlist",
+                        res.pageInfo
+                    );
+                    children.push(loadMore);
+                }
+
+                addItemsAt(item, children, 0);
+                buildParagraphs();
+            }
+        } else if (item.type == "yt-channel" && item.itemId) {
+            const res = await getChannelInfo(item.itemId);
+
+            const children = res.items;
+            if (children.length > 0) {
+                if (res.pageInfo.nextPageToken) {
+                    const loadMore = createLoadMoreItem(
+                        item.itemId,
+                        getLoadMoreTypeForItem(item),
+                        res.pageInfo
+                    );
+                    children.push(loadMore);
+                }
+
+                addItemsAt(item, children, 0);
+                buildParagraphs();
+            }
+        }
+    } else {
+        item.isOpen = true;
+    }
+}
+
+async function performSearch(state: AppState, item: Item) {
+    //TODO: BUG title might change after await and before next line executes
+    const res = await searchYoutube(item.title);
+
+    if (res.pageInfo.nextPageToken) {
+        const loadMore = createLoadMoreItem(
+            item.title,
+            getLoadMoreTypeForItem(item),
+            res.pageInfo
+        );
+
+        res.items.push(loadMore);
+    }
+
+    replaceChildren(item, res.items);
+    buildParagraphs();
+}
+
+export async function loadMoreItems(state: AppState, item: Item) {
+    if (item.itemId && item.loadMorePageToken && item.loadMoreWhat) {
+        let res: MyResponse;
+        if (item.loadMoreWhat == "playlist")
+            res = await findPlaylistVideos(item.itemId, item.loadMorePageToken);
+        else if (item.loadMoreWhat == "channel")
+            res = await getChannelInfo(item.itemId, item.loadMorePageToken);
+        else if (item.loadMoreWhat == "search")
+            res = await searchYoutube(item.itemId, item.loadMorePageToken);
+        else throw new Error("Unknown loadMoreWhat tag " + item.loadMoreWhat);
+
+        const children = res.items;
+
         if (children.length > 0) {
-            item.children = children;
-            children.forEach((c) => (c.parent = item));
-            item.isOpen = true;
+            const position = getIndexOf(item);
+            removeItem(item);
+            if (res.pageInfo.nextPageToken) {
+                const loadMore = createLoadMoreItem(
+                    item.itemId,
+                    item.loadMoreWhat,
+                    res.pageInfo,
+                    item.loadMoreResultsLoaded
+                );
+
+                children.push(loadMore);
+            }
+
+            addItemsAt(item.parent, children, position);
+
+            if (getPrimaryCursor(state).item == item)
+                state.cursorState.cursors = [createCursor(children[0])];
             buildParagraphs();
         }
-    } else if (item.children.length > 0) {
-        item.isOpen = true;
     }
 }
 
